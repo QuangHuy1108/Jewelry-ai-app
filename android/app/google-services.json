@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "79453872525",
+    "project_id": "jewelry-ai-app-bba3d",
+    "storage_bucket": "jewelry-ai-app-bba3d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:79453872525:android:e279be1adb5c3a16151dc4",
+        "android_client_info": {
+          "package_name": "com.example.jewelry_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDNOWdIcX9v4zbss77xGaKx3bpVtjJbTOk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
