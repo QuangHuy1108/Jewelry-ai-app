@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+// Giả sử bạn dùng SharedPreferences để lưu token, hãy thêm: import 'package:shared_preferences/shared_preferences.dart';
 import '../../../router/app_router.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -8,7 +9,6 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-// Bổ sung SingleTickerProviderStateMixin để màn hình có thể đồng bộ nhịp thời gian (Tick) với hiệu ứng
 class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _opacityAnimation;
@@ -18,44 +18,48 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   void initState() {
     super.initState();
 
-    // 1. Tạo bộ điều khiển với tổng thời gian = 4.0 giây
-    // (1.5s hiện + 2.0s chờ + 0.5s chuyển cảnh)
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 4),
     );
 
-    // 2. Thiết lập chuỗi hiệu ứng cho Độ mờ (Opacity)
-    // Thuộc tính 'weight' đại diện cho phần trăm (%) thời gian của tổng 4 giây
+    // Hiệu ứng Fade In -> Hold -> Fade Out
     _opacityAnimation = TweenSequence<double>([
-      // 1.5s / 4.0s = 37.5%: Từ 0 lên 1 (Fade In)
       TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 37.5),
-      // 2.0s / 4.0s = 50.0%: Giữ nguyên ở mức 1 (Hold)
       TweenSequenceItem(tween: ConstantTween<double>(1.0), weight: 50.0),
-      // 0.5s / 4.0s = 12.5%: Từ 1 về 0 (Fade Out)
       TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 12.5),
     ]).animate(_controller);
 
-    // 3. Thiết lập chuỗi hiệu ứng cho Kích thước (Scale)
+    // Hiệu ứng Scale nhẹ lúc kết thúc
     _scaleAnimation = TweenSequence<double>([
-      // 3.5s đầu / 4.0s = 87.5%: Giữ nguyên tỷ lệ 1.0
       TweenSequenceItem(tween: ConstantTween<double>(1.0), weight: 87.5),
-      // 0.5s cuối / 4.0s = 12.5%: Phóng to từ 1.0 lên 1.1
       TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.1), weight: 12.5),
     ]).animate(_controller);
 
-    // 4. Kích hoạt chạy hiệu ứng. Hàm .then() sẽ được gọi khi hiệu ứng chạy xong 4 giây
-    _controller.forward().then((_) {
-      if (mounted) {
-        // Tự động chuyển sang màn hình Onboarding mượt mà
-        Navigator.pushReplacementNamed(context, AppRouter.onboarding);
-      }
-    });
+    // Kích hoạt chạy hiệu ứng và xử lý logic điều hướng khi kết thúc
+    _controller.forward().then((_) => _handleNavigation());
+  }
+
+  // --- TÍNH NĂNG MỚI: KIỂM TRA TRẠNG THÁI NGƯỜI DÙNG ---
+  Future<void> _handleNavigation() async {
+    if (!mounted) return;
+
+    // GIẢ LẬP KIỂM TRA AUTH (Bạn thay đoạn này bằng logic thực tế của app)
+    // Ví dụ: final prefs = await SharedPreferences.getInstance();
+    // String? token = prefs.getString('user_token');
+    bool isLoggedIn = false; // Mặc định là chưa đăng nhập
+
+    if (isLoggedIn) {
+      // Nếu đã đăng nhập -> Vào Home
+      Navigator.pushReplacementNamed(context, AppRouter.home);
+    } else {
+      // Theo roadmap: Sau Splash là Welcome screen
+      Navigator.pushReplacementNamed(context, AppRouter.welcome);
+    }
   }
 
   @override
   void dispose() {
-    // Rất quan trọng: Phải hủy bỏ _controller khi màn hình này đóng lại để giải phóng bộ nhớ
     _controller.dispose();
     super.dispose();
   }
@@ -66,40 +70,16 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // 1. Họa tiết lá mờ ở góc trên bên phải (không đổi)
-          Positioned(
-            top: -30,
-            right: -30,
-            child: Opacity(
-              opacity: 0.05,
-              child: Icon(
-                Icons.energy_savings_leaf,
-                size: 200,
-                color: Colors.grey.shade800,
-              ),
-            ),
-          ),
+          // Background Decor (Giữ nguyên)
+          _buildBackgroundIcon(top: -30, right: -30),
+          _buildBackgroundIcon(bottom: -30, left: -30),
 
-          // 2. Họa tiết lá mờ ở góc dưới bên trái (không đổi)
-          Positioned(
-            bottom: -30,
-            left: -30,
-            child: Opacity(
-              opacity: 0.05,
-              child: Icon(
-                Icons.energy_savings_leaf,
-                size: 200,
-                color: Colors.grey.shade800,
-              ),
-            ),
-          ),
-
-          // 3. Khối Logo và Tên Text bọc trong hiệu ứng
+          // Logo & Text Animation
           Center(
             child: FadeTransition(
-              opacity: _opacityAnimation, // Gắn hiệu ứng mờ
+              opacity: _opacityAnimation,
               child: ScaleTransition(
-                scale: _scaleAnimation, // Gắn hiệu ứng phóng to
+                scale: _scaleAnimation,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -109,23 +89,28 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                       decoration: BoxDecoration(
                         color: Colors.grey.shade100,
                         shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 20,
+                            spreadRadius: 5,
+                          )
+                        ],
                       ),
-                      child: Center(
-                        child: Icon(
-                          Icons.diamond_outlined,
-                          size: 45,
-                          color: Colors.grey.shade800,
-                        ),
+                      child: Icon(
+                        Icons.diamond_outlined,
+                        size: 45,
+                        color: Colors.grey.shade800,
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 20),
                     const Text(
-                      "Jewelry Shop",
+                      "JEWELRY SHOP",
                       style: TextStyle(
-                        fontSize: 26,
+                        fontSize: 24,
                         fontWeight: FontWeight.bold,
                         color: Colors.black87,
-                        letterSpacing: 1.2,
+                        letterSpacing: 4.0, // Tăng khoảng cách chữ cho sang trọng
                       ),
                     ),
                   ],
@@ -134,6 +119,24 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // Helper widget để code gọn hơn
+  Widget _buildBackgroundIcon({double? top, double? right, double? bottom, double? left}) {
+    return Positioned(
+      top: top,
+      right: right,
+      bottom: bottom,
+      left: left,
+      child: Opacity(
+        opacity: 0.05,
+        child: Icon(
+          Icons.energy_savings_leaf,
+          size: 250,
+          color: Colors.grey.shade800,
+        ),
       ),
     );
   }

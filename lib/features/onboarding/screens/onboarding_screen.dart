@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // Thêm thư viện này
 import '../../../router/app_router.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -23,30 +24,28 @@ class _OnboardingScreenState extends State<OnboardingScreen> with TickerProvider
   late AnimationController _backButtonController;
   late Animation<double> _backButtonScale;
 
-  // CẬP NHẬT: Cấu trúc lại dữ liệu để hỗ trợ nhiều đoạn văn bản đan xen kiểu dáng
   final List<Map<String, dynamic>> _onboardingData = [
     {
       "titleSpans": [
         TextSpan(text: "Effortless\n", style: TextStyle(color: Colors.grey.shade400, fontWeight: FontWeight.normal)),
         const TextSpan(text: "Jewelry Shopping\nExperience", style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
       ],
-      "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore.",
+      "desc": "Explore high-end jewelry with just a few taps on your screen.",
     },
     {
       "titleSpans": [
         const TextSpan(text: "Build Your Perfect\n", style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
         TextSpan(text: "Jewelry Box", style: TextStyle(color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
       ],
-      "desc": "Discover our unique collections and customize your own sparkling jewelry box seamlessly.",
+      "desc": "Discover our unique collections and customize your own sparkling jewelry box.",
     },
     {
-      // Dữ liệu cho Màn hình 3 với 3 mảng màu xen kẽ
       "titleSpans": [
         const TextSpan(text: "Shine Delivered:\n", style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
         TextSpan(text: "Quick & Secure\n", style: TextStyle(color: Colors.grey.shade400, fontWeight: FontWeight.normal)),
         const TextSpan(text: "Jewelry Shopping", style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
       ],
-      "desc": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore.",
+      "desc": "Your precious items are handled with care and delivered with maximum security.",
     }
   ];
 
@@ -54,8 +53,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> with TickerProvider
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: 0);
+    _initAnimations();
+  }
 
-    // Hiệu ứng xuất hiện
+  void _initAnimations() {
     _entranceController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
     _phoneSlide = Tween<Offset>(begin: const Offset(0.0, 0.1), end: Offset.zero).animate(
       CurvedAnimation(parent: _entranceController, curve: const Interval(0.0, 0.75, curve: Curves.easeOut)),
@@ -69,16 +70,36 @@ class _OnboardingScreenState extends State<OnboardingScreen> with TickerProvider
 
     _entranceController.forward();
 
-    // Hiệu ứng nút
-    _nextButtonController = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 100), lowerBound: 0.9, upperBound: 1.0, value: 1.0,
-    );
+    _nextButtonController = AnimationController(vsync: this, duration: const Duration(milliseconds: 100), lowerBound: 0.9, upperBound: 1.0, value: 1.0);
     _nextButtonScale = Tween<double>(begin: 0.9, end: 1.0).animate(_nextButtonController);
 
-    _backButtonController = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 100), lowerBound: 0.9, upperBound: 1.0, value: 1.0,
-    );
+    _backButtonController = AnimationController(vsync: this, duration: const Duration(milliseconds: 100), lowerBound: 0.9, upperBound: 1.0, value: 1.0);
     _backButtonScale = Tween<double>(begin: 0.9, end: 1.0).animate(_backButtonController);
+  }
+
+  // --- TÍNH NĂNG MỚI: LƯU TRẠNG THÁI ---
+  Future<void> _completeOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('hasSeenOnboarding', true); // Lưu lại để lần sau không hiện Onboarding nữa
+
+    if (mounted) {
+      // Chuyển sang màn hình Đăng nhập
+      Navigator.pushReplacementNamed(context, AppRouter.signin);
+    }
+  }
+
+  void _onNextPressed() {
+    if (_currentPage < _onboardingData.length - 1) {
+      _pageController.nextPage(duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
+    } else {
+      _completeOnboarding(); // Lưu trạng thái và thoát
+    }
+  }
+
+  void _onBackPressed() {
+    if (_currentPage > 0) {
+      _pageController.previousPage(duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
+    }
   }
 
   @override
@@ -90,33 +111,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> with TickerProvider
     super.dispose();
   }
 
-  void _onNextPressed() {
-    if (_currentPage < _onboardingData.length - 1) {
-      // Nếu chưa phải trang cuối, chuyển sang trang tiếp theo
-      _pageController.nextPage(duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
-    } else {
-      // Đã ở trang cuối (Màn 3), kết thúc Onboarding và chuyển vào ứng dụng
-      // (Bạn có thể đổi AppRouter.home thành AppRouter.login sau này)
-      Navigator.pushReplacementNamed(context, AppRouter.signup);
-    }
-  }
-
-  void _onBackPressed() {
-    if (_currentPage > 0) {
-      _pageController.previousPage(duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    // Biến kiểm tra xem có phải trang cuối không
     bool isLastPage = _currentPage == _onboardingData.length - 1;
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // 1. Nền xám và đường cong lõm
+          // Background Decor
           Positioned(
             top: 0, left: 0, right: 0,
             height: MediaQuery.of(context).size.height * 0.55,
@@ -126,7 +129,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> with TickerProvider
             ),
           ),
 
-          // 2. PageView cho phép vuốt qua lại
           PageView.builder(
             controller: _pageController,
             onPageChanged: (index) => setState(() => _currentPage = index),
@@ -134,19 +136,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> with TickerProvider
             itemBuilder: (context, index) => _buildPageContent(index),
           ),
 
-          // 3. Header: Nút Skip (Sẽ mờ dần và biến mất ở trang cuối)
+          // Nút Skip
           SafeArea(
             child: Align(
               alignment: Alignment.topRight,
               child: Padding(
                 padding: const EdgeInsets.only(right: 24.0, top: 8.0),
                 child: AnimatedOpacity(
-                  opacity: isLastPage ? 0.0 : 1.0, // Mờ đi khi là trang cuối
+                  opacity: isLastPage ? 0.0 : 1.0,
                   duration: const Duration(milliseconds: 300),
                   child: IgnorePointer(
-                    ignoring: isLastPage, // Vô hiệu hóa tính năng bấm khi đã mờ
+                    ignoring: isLastPage,
                     child: TextButton(
-                      onPressed: () => Navigator.pushReplacementNamed(context, AppRouter.home),
+                      onPressed: _completeOnboarding, // Bấm Skip cũng tính là đã xem Onboarding
                       child: Text(
                         "Skip",
                         style: TextStyle(color: Colors.grey.shade500, fontSize: 16, fontWeight: FontWeight.w500),
@@ -158,7 +160,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> with TickerProvider
             ),
           ),
 
-          // 4. Footer: Nút Back, Pagination Dots, Nút Next
+          // Footer: Nút Back, Dot, Next
           Positioned(
             bottom: 0, left: 0, right: 0,
             child: SafeArea(
@@ -169,55 +171,29 @@ class _OnboardingScreenState extends State<OnboardingScreen> with TickerProvider
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // NÚT BACK
-                      AnimatedOpacity(
-                        opacity: _currentPage == 0 ? 0.0 : 1.0,
-                        duration: const Duration(milliseconds: 300),
-                        child: GestureDetector(
-                          onTapDown: (_) => _currentPage > 0 ? _backButtonController.animateTo(0.9) : null,
-                          onTapUp: (_) {
-                            _backButtonController.animateTo(1.0);
-                            _onBackPressed();
-                          },
-                          onTapCancel: () => _backButtonController.animateTo(1.0),
-                          child: ScaleTransition(
-                            scale: _backButtonScale,
-                            child: Container(
-                              width: 60, height: 60,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.grey.shade300, width: 1.5),
-                              ),
-                              child: Icon(Icons.arrow_back, color: Colors.grey.shade700),
-                            ),
-                          ),
-                        ),
+                      // Back Button
+                      _buildIconButton(
+                        visible: _currentPage != 0,
+                        icon: Icons.arrow_back,
+                        onTap: _onBackPressed,
+                        controller: _backButtonController,
+                        scale: _backButtonScale,
+                        isDark: false,
                       ),
 
-                      // DẢI DẤU CHẤM
+                      // Dots
                       Row(
                         children: List.generate(_onboardingData.length, (index) => _buildPaginationDot(index)),
                       ),
 
-                      // NÚT NEXT (Hoạt động như nút Done ở trang cuối)
-                      GestureDetector(
-                        onTapDown: (_) => _nextButtonController.animateTo(0.9),
-                        onTapUp: (_) {
-                          _nextButtonController.animateTo(1.0);
-                          _onNextPressed(); // Đã bao gồm logic chuyển hướng nếu ở trang cuối
-                        },
-                        onTapCancel: () => _nextButtonController.animateTo(1.0),
-                        child: ScaleTransition(
-                          scale: _nextButtonScale,
-                          child: Container(
-                            width: 60, height: 60,
-                            decoration: BoxDecoration(color: Colors.grey.shade900, shape: BoxShape.circle),
-                            // Nếu muốn, bạn có thể đổi icon ở trang cuối thành dấu tích (Icons.check) thay vì mũi tên:
-                            // child: Icon(isLastPage ? Icons.check : Icons.arrow_forward, color: Colors.white),
-                            child: const Icon(Icons.arrow_forward, color: Colors.white),
-                          ),
-                        ),
+                      // Next Button
+                      _buildIconButton(
+                        visible: true,
+                        icon: isLastPage ? Icons.check : Icons.arrow_forward,
+                        onTap: _onNextPressed,
+                        controller: _nextButtonController,
+                        scale: _nextButtonScale,
+                        isDark: true,
                       ),
                     ],
                   ),
@@ -230,14 +206,49 @@ class _OnboardingScreenState extends State<OnboardingScreen> with TickerProvider
     );
   }
 
+  // Tối ưu hóa lại Widget Nút bấm để tránh lặp code
+  Widget _buildIconButton({
+    required bool visible,
+    required IconData icon,
+    required VoidCallback onTap,
+    required AnimationController controller,
+    required Animation<double> scale,
+    required bool isDark,
+  }) {
+    return AnimatedOpacity(
+      opacity: visible ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 300),
+      child: IgnorePointer(
+        ignoring: !visible,
+        child: GestureDetector(
+          onTapDown: (_) => controller.animateTo(0.9),
+          onTapUp: (_) {
+            controller.animateTo(1.0);
+            onTap();
+          },
+          onTapCancel: () => controller.animateTo(1.0),
+          child: ScaleTransition(
+            scale: scale,
+            child: Container(
+              width: 60, height: 60,
+              decoration: BoxDecoration(
+                color: isDark ? Colors.grey.shade900 : Colors.white,
+                shape: BoxShape.circle,
+                border: isDark ? null : Border.all(color: Colors.grey.shade300, width: 1.5),
+              ),
+              child: Icon(icon, color: isDark ? Colors.white : Colors.grey.shade700),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildPageContent(int index) {
     final data = _onboardingData[index];
-
     return Column(
       children: [
         SizedBox(height: MediaQuery.of(context).padding.top + 50),
-
-        // Mockup điện thoại
         Expanded(
           flex: 11,
           child: SlideTransition(
@@ -267,8 +278,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> with TickerProvider
             ),
           ),
         ),
-
-        // Cụm văn bản
         Expanded(
           flex: 8,
           child: FadeTransition(
@@ -278,16 +287,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> with TickerProvider
               child: Column(
                 children: [
                   const SizedBox(height: 10),
-                  // Tiêu đề động hỗ trợ nhiều TextSpan
                   RichText(
                     textAlign: TextAlign.center,
                     text: TextSpan(
-                      style: const TextStyle(fontSize: 28, height: 1.3),
-                      children: data['titleSpans'], // Gắn mảng cấu hình chữ vào đây
+                      style: const TextStyle(fontSize: 28, height: 1.3, fontFamily: 'Georgia'), // Ví dụ thêm font cho sang
+                      children: data['titleSpans'],
                     ),
                   ),
                   const SizedBox(height: 16),
-                  // Mô tả
                   Text(
                     data['desc'],
                     textAlign: TextAlign.center,
