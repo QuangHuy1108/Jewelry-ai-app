@@ -80,11 +80,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // 1. Background (Sửa lỗi hiển thị masonry)
-          FadeTransition(
-            opacity: _bgFadeAnimation,
-            child: _buildMasonryBackground(size),
-          ),
+          // 1. Background (Sửa lỗi Incorrect use of ParentDataWidget)
+          _buildMasonryBackground(size),
 
           SafeArea(
             child: Column(
@@ -121,7 +118,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
                                   ),
                                 ],
                                 image: const DecorationImage(
-                                  image: NetworkImage('https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?q=80&w=800'),
+                                    image: NetworkImage('https://i.postimg.cc/kX889qJT/h5.jpg'),
                                   fit: BoxFit.cover,
                                 ),
                               ),
@@ -222,22 +219,25 @@ class _WelcomeScreenState extends State<WelcomeScreen> with TickerProviderStateM
       top: -20,
       left: 0,
       right: 0,
-      child: Opacity(
-        opacity: 0.3,
-        child: Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          alignment: WrapAlignment.center,
-          children: List.generate(8, (index) {
-            return Container(
-              width: (index % 2 == 0) ? size.width * 0.4 : size.width * 0.3,
-              height: (index % 3 == 0) ? 160 : 100,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(24),
-              ),
-            );
-          }),
+      child: FadeTransition(
+        opacity: _bgFadeAnimation,
+        child: Opacity(
+          opacity: 0.3,
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            alignment: WrapAlignment.center,
+            children: List.generate(8, (index) {
+              return Container(
+                width: (index % 2 == 0) ? size.width * 0.4 : size.width * 0.3,
+                height: (index % 3 == 0) ? 160 : 100,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+              );
+            }),
+          ),
         ),
       ),
     );

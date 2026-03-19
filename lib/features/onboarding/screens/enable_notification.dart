@@ -74,16 +74,14 @@ class _EnableNotificationScreenState extends State<EnableNotificationScreen> wit
     } catch (e) {
       debugPrint("Error requesting notification permission: $e");
     } finally {
-      // 3. ALWAYS navigate to Home after the request interaction is complete.
-      // We use a small delay to ensure the app has resumed focus from the system dialog
-      // and use pushNamedAndRemoveUntil to clear the onboarding stack.
+      // 3. Navigate to Location Permission screen after the request interaction is complete.
+      // We use a small delay to ensure the app has resumed focus from the system dialog.
       if (mounted) {
         Future.delayed(const Duration(milliseconds: 200), () {
           if (mounted) {
-            Navigator.pushNamedAndRemoveUntil(
+            Navigator.pushReplacementNamed(
               context, 
-              AppRouter.home, 
-              (route) => false,
+              AppRouter.locationPermission, 
             );
           }
         });
@@ -99,10 +97,9 @@ class _EnableNotificationScreenState extends State<EnableNotificationScreen> wit
     await prefs.setBool('notificationsEnabled', false);
 
     if (mounted) {
-      Navigator.pushNamedAndRemoveUntil(
+      Navigator.pushReplacementNamed(
         context, 
-        AppRouter.home, 
-        (route) => false,
+        AppRouter.locationPermission,
       );
     }
   }

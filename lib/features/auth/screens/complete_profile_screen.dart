@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart'; // Thư viện chọn ảnh
 import 'package:country_picker/country_picker.dart'; // Thư viện chọn mã vùng có thanh tìm kiếm
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../router/app_router.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class CompleteProfileScreen extends StatefulWidget {
   const CompleteProfileScreen({Key? key}) : super(key: key);
@@ -56,41 +57,160 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   // LOGIC: Xử lý Submit Form
   Future<void> _submitProfile() async {
     if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
+      setState(() => _isLoading = true);
 
-      // Tại đây bạn sẽ gọi API / Firebase để upload ảnh (_imageFile) và gửi dữ liệu lên
-      // Giả lập thời gian gọi API mất 2 giây
-      await Future.delayed(const Duration(seconds: 2));
+      // Ghép mã vùng và số điện thoại thành chuẩn E.164 (VD: +84912345678)
+      // Lưu ý: Cần loại bỏ số 0 ở đầu số điện thoại nếu người dùng có nhập
+      String rawPhone = _phoneController.text.trim();
+      if (rawPhone.startsWith('0')) {
+        rawPhone = rawPhone.substring(1);
+      }
+      String fullPhoneNumber = '$_selectedCountryCode$rawPhone';
+
+      try {
+        await FirebaseAuth.instance.verifyPhoneNumber(
+          phoneNumber: fullPhoneNumber,
+          timeout: const Duration(seconds: 60),
+
+          // 1. Tự động xác thực thành công (Thường xảy ra trên Android nếu máy tự đọc được SMS)
+          verificationCompleted: (PhoneAuthCredential credential) async {
+            await _linkPhoneAndCompleteProfile(credential);
+          },
+
+          // 2. Lỗi khi gửi SMS (VD: Sai định dạng số, bị Firebase chặn)
+          verificationFailed: (FirebaseAuthException e) {
+            setState(() => _isLoading = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(e.message ?? "Lỗi xác minh số điện thoại"), backgroundColor: Colors.red),
+            );
+          },
+
+          // 3. SMS đã được gửi thành công -> Hiển thị form nhập mã 6 số
+          codeSent: (String verificationId, int? resendToken) {
+            setState(() => _isLoading = false);
+            _showOTPDialog(verificationId);
+          },
+
+          // 4. Hết thời gian chờ tự động lấy mã
+          codeAutoRetrievalTimeout: (String verificationId) {},
+        );
+      } catch (e) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Đã xảy ra lỗi không xác định"), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  void _showOTPDialog(String verificationId) {
+    final TextEditingController otpController = TextEditingController();
+    bool isVerifying = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Bắt buộc nhập hoặc bấm Hủy
+      builder: (context) {
+        return StatefulBuilder(
+            builder: (context, setDialogState) {
+              return AlertDialog(
+                title: const Text("Xác minh số điện thoại"),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text("Vui lòng nhập mã 6 số vừa được gửi đến số điện thoại của bạn."),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: otpController,
+                      keyboardType: TextInputType.number,
+                      maxLength: 6,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 24, letterSpacing: 8),
+                      decoration: const InputDecoration(
+                        hintText: "------",
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: isVerifying ? null : () => Navigator.pop(context),
+                    child: const Text("Hủy", style: TextStyle(color: Colors.grey)),
+                  ),
+                  ElevatedButton(
+                    onPressed: isVerifying ? null : () async {
+                      String otp = otpController.text.trim();
+                      if (otp.length != 6) return;
+
+                      setDialogState(() => isVerifying = true);
+
+                      try {
+                        // Tạo chứng chỉ từ mã người dùng nhập
+                        PhoneAuthCredential credential = PhoneAuthProvider.credential(
+                          verificationId: verificationId,
+                          smsCode: otp,
+                        );
+
+                        Navigator.pop(context);
+
+                        // Tiến hành lưu profile
+                        await _linkPhoneAndCompleteProfile(credential);
+                      } on FirebaseAuthException catch (e) {
+                        setDialogState(() => isVerifying = false);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Mã OTP không chính xác!"), backgroundColor: Colors.red),
+                        );
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.black),
+                    child: isVerifying
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : const Text("Xác nhận", style: TextStyle(color: Colors.white)),
+                  ),
+                ],
+              );
+            }
+        );
+      },
+    );
+  }
+
+  Future<void> _linkPhoneAndCompleteProfile(PhoneAuthCredential credential) async {
+    setState(() => _isLoading = true);
+    try {
+      // Lưu số điện thoại vào tài khoản Firebase Auth hiện tại
+      if (FirebaseAuth.instance.currentUser != null) {
+        // Dùng linkWithCredential để gắn sđt vào tài khoản Email đang đăng nhập
+        await FirebaseAuth.instance.currentUser!.linkWithCredential(credential);
+      }
+
+      // TẠI ĐÂY: Bạn có thể thêm code upload ảnh _imageFile lên Firebase Storage
+      // và lưu _nameController.text vào Cloud Firestore.
 
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Profile completed successfully!"), backgroundColor: Colors.green),
+          const SnackBar(content: Text("Xác minh thành công!"), backgroundColor: Colors.green),
         );
 
-        // FEATURE: Only ask for notification permission for first-time users
         final prefs = await SharedPreferences.getInstance();
         bool isFirstTime = prefs.getBool('isFirstTimeUser') ?? true;
 
         if (isFirstTime) {
           await prefs.setBool('isFirstTimeUser', false);
-          if (mounted) {
-            Navigator.pushReplacementNamed(context, AppRouter.enableNotification);
-          }
+          Navigator.pushReplacementNamed(context, AppRouter.enableNotification);
         } else {
-          if (mounted) {
-            Navigator.pushReplacementNamed(context, AppRouter.home);
-          }
+          Navigator.pushReplacementNamed(context, AppRouter.home);
         }
       }
+    } on FirebaseAuthException catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message ?? "Lỗi liên kết số điện thoại"), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
-
   // Mở BottomSheet chọn ảnh
   void _showImagePickerOptions() {
     showModalBottomSheet(

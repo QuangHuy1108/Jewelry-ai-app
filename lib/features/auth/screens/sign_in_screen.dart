@@ -3,6 +3,7 @@ import 'package:flutter/gestures.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../router/app_router.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -161,6 +162,49 @@ class _SignInScreenState extends State<SignInScreen> {
     );
   }
 
+  Future<void> _signInWithGoogle() async {
+    setState(() => _isLoading = true);
+    try {
+      final GoogleSignIn googleSignIn = GoogleSignIn.instance;
+      
+      // Check if platform supports authentication
+      if (!googleSignIn.supportsAuthenticate()) {
+        _showError("Google Sign-In is not supported on this platform.");
+        return;
+      }
+
+      final GoogleSignInAccount? googleUser = await googleSignIn.authenticate();
+
+      if (googleUser == null) {
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      final GoogleSignInAuthentication googleAuth = googleUser.authentication;
+      
+      // In version 7.0+, accessToken is obtained via authorizationClient
+      final GoogleSignInClientAuthorization? clientAuth = await googleUser.authorizationClient.authorizationForScopes([]);
+      
+      final AuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: clientAuth?.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      await FirebaseAuth.instance.signInWithCredential(credential);
+      await _saveLoginStatus();
+
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, AppRouter.home);
+      }
+    } on FirebaseAuthException catch (e) {
+      _showError(e.message ?? "Lỗi đăng nhập Google!");
+    } catch (e) {
+      _showError("Đã xảy ra lỗi không xác định.");
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   Widget _buildTextField({required TextEditingController controller, required String label, required String hint, bool isPassword = false, required FocusNode focusNode}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -207,7 +251,7 @@ class _SignInScreenState extends State<SignInScreen> {
           children: [
             _socialButton(Icons.apple),
             const SizedBox(width: 20),
-            _socialButton(Icons.g_mobiledata, iconSize: 32),
+            _socialButton(Icons.g_mobiledata, iconSize: 32, onTap: _signInWithGoogle),
             const SizedBox(width: 20),
             _socialButton(Icons.facebook, color: Colors.blue),
           ],
@@ -215,12 +259,15 @@ class _SignInScreenState extends State<SignInScreen> {
       ],
     );
   }
-
-  Widget _socialButton(IconData icon, {Color? color, double iconSize = 24}) {
-    return Container(
-      width: 56, height: 56,
-      decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.grey.shade200)),
-      child: Icon(icon, color: color ?? Colors.black87, size: iconSize),
+  
+  Widget _socialButton(IconData icon, {Color? color, double iconSize = 24, VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 56, height: 56,
+        decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.grey.shade200)),
+        child: Icon(icon, color: color ?? Colors.black87, size: iconSize),
+      ),
     );
   }
 

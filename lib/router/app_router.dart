@@ -17,9 +17,6 @@ import '../features/onboarding/screens/enable_notification.dart';
 import '../features/onboarding/screens/location_permission_screen.dart';
 import '../features/onboarding/screens/enter_location_screen.dart';
 
-
-
-
 class AppRouter {
   static const splash = '/splash';
   static const onboarding = '/onboarding';
@@ -37,9 +34,7 @@ class AppRouter {
   static const newPassword = '/new-password';
   static const enableNotification = '/enable-notification';
   static const locationPermission = '/location-permission';
-  static const enterLocation = '/new-password';
-
-
+  static const enterLocation = '/enter-location';
 
   static Map<String, WidgetBuilder> routes = {
     splash: (_) => const SplashScreen(),

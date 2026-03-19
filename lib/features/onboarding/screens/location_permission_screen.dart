@@ -142,13 +142,9 @@ class _LocationPermissionScreenState extends State<LocationPermissionScreen> wit
   // LOGIC: Xử lý khi người dùng chọn Nhập thủ công
   void _handleEnterManually() {
     // Điều hướng sang màn hình nhập địa chỉ thủ công
-    // Lưu ý: Đảm bảo bạn đã khai báo route này trong AppRouter
-    // Navigator.pushNamed(context, AppRouter.enterLocation);
-
-    // Tạm thời hiển thị thông báo nếu bạn chưa tạo màn hình này:
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Tính năng nhập thủ công đang được phát triển.')),
-    );
+    if (mounted) {
+      Navigator.pushNamed(context, AppRouter.enterLocation);
+    }
   }
 
   @override

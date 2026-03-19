@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../router/app_router.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -37,6 +39,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   bool _isValidEmail(String email) {
     return RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email);
+  }
+
+  Future<void> _saveLoginStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isLoggedIn', true);
   }
 
   // --- LOGIC XỬ LÝ ĐĂNG KÝ ---
@@ -201,6 +208,50 @@ class _SignUpScreenState extends State<SignUpScreen> {
     );
   }
 
+  Future<void> _signInWithGoogle() async {
+    setState(() => _isLoading = true);
+    try {
+      final GoogleSignIn googleSignIn = GoogleSignIn.instance;
+
+      // Check if platform supports authentication
+      if (!googleSignIn.supportsAuthenticate()) {
+        _showError("Google Sign-In is not supported on this platform.");
+        return;
+      }
+
+      final GoogleSignInAccount? googleUser = await googleSignIn.authenticate();
+
+      if (googleUser == null) {
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      final GoogleSignInAuthentication googleAuth = googleUser.authentication;
+
+      // In version 7.0+, accessToken is obtained via authorizationClient
+      final GoogleSignInClientAuthorization? clientAuth = await googleUser.authorizationClient.authorizationForScopes([]);
+
+      final AuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: clientAuth?.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      await FirebaseAuth.instance.signInWithCredential(credential);
+      await _saveLoginStatus();
+
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, AppRouter.home);
+      }
+    } on FirebaseAuthException catch (e) {
+      _showError(e.message ?? "Lỗi đăng nhập Google!");
+    } catch (e) {
+      _showError("Đã xảy ra lỗi không xác định.");
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+
   // --- WIDGET CON ĐÃ TỐI ƯU (Sửa đổi để dùng cho cả 2 ô mật khẩu) ---
 
   Widget _buildTextField({
@@ -261,7 +312,51 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 TextSpan(
                   text: "Terms & Condition",
                   style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, decoration: TextDecoration.underline),
-                  recognizer: TapGestureRecognizer()..onTap = () {},
+                  recognizer: TapGestureRecognizer()..onTap = () {showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16), // Bo góc cho Dialog đẹp hơn
+                      ),
+                      title: const Text(
+                        "Terms & Conditions",
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+                      ),
+                      // Bọc nội dung bằng Scrollbar và SingleChildScrollView để có thể kéo xuống
+                      content: SizedBox(
+                        width: double.maxFinite,
+                        child: Scrollbar(
+                          thumbVisibility: true, // Hiện thanh cuộn bên phải
+                          child: SingleChildScrollView(
+                            physics: const BouncingScrollPhysics(), // Hiệu ứng cuộn mượt
+                            child: const Text(
+                              "Nội dung Điều khoản & Điều kiện của ứng dụng bắt đầu ở đây.\n\n"
+                                  "1. Chấp nhận điều khoản\n"
+                                  "Bằng việc sử dụng ứng dụng này, bạn đồng ý với tất cả các điều khoản và điều kiện được nêu ra dưới đây. Bạn có thể viết nội dung dài bao nhiêu tùy thích.\n\n"
+                                  "2. Quyền riêng tư\n"
+                                  "Chúng tôi cam kết bảo vệ dữ liệu cá nhân của bạn. Mọi thông tin thu thập sẽ chỉ được sử dụng cho mục đích cải thiện trải nghiệm người dùng.\n\n"
+                                  "3. Trách nhiệm người dùng\n"
+                                  "Người dùng cam kết không sử dụng ứng dụng cho các mục đích bất hợp pháp hoặc gây hại đến hệ thống.\n\n"
+                                  "4. Thay đổi điều khoản\n"
+                                  "Chúng tôi có quyền thay đổi các điều khoản này bất kỳ lúc nào mà không cần thông báo trước. Việc tiếp tục sử dụng ứng dụng đồng nghĩa với việc bạn chấp nhận các thay đổi đó.\n\n"
+                                  "5. ... (Bạn có thể thêm hàng trăm dòng chữ nữa vào đây, hộp thoại sẽ tự động có thanh cuộn để kéo xuống).",
+                              style: TextStyle(fontSize: 14, color: Colors.black87, height: 1.5),
+                            ),
+                          ),
+                        ),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context), // Đóng Dialog
+                          child: const Text(
+                            "Đóng",
+                            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                    },
                 ),
               ],
             ),
@@ -271,34 +366,38 @@ class _SignUpScreenState extends State<SignUpScreen> {
     );
   }
 
+  Widget _socialButton(IconData icon, {Color? color, double iconSize = 24, VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap, // Thêm hành động khi nhấn
+      child: Container(
+        width: 56, height: 56,
+        decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.grey.shade200)),
+        child: Icon(icon, color: color ?? Colors.black87, size: iconSize),
+      ),
+    );
+  }
+
   Widget _buildSocialSection() {
     return Column(
       children: [
         Row(children: [
           Expanded(child: Divider(color: Colors.grey.shade300)),
-          const Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text("Or sign up with")),
+          const Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text("Or sign in with")),
           Expanded(child: Divider(color: Colors.grey.shade300)),
         ]),
         const SizedBox(height: 24),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _socialIcon(Icons.g_mobiledata, color: Colors.red),
+            _socialButton(Icons.apple),
             const SizedBox(width: 20),
-            _socialIcon(Icons.apple, color: Colors.black),
+            // Gắn sự kiện onTap vào đây
+            _socialButton(Icons.g_mobiledata, iconSize: 32, onTap: _signInWithGoogle),
             const SizedBox(width: 20),
-            _socialIcon(Icons.facebook, color: Colors.blue),
+            _socialButton(Icons.facebook, color: Colors.blue),
           ],
         ),
       ],
-    );
-  }
-
-  Widget _socialIcon(IconData icon, {required Color color}) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.grey.shade200)),
-      child: Icon(icon, color: color, size: 30),
     );
   }
 

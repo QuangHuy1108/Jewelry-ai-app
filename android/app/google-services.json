@@ -12,7 +12,20 @@
           "package_name": "com.example.jewelry_app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "79453872525-v343ml7mbsdaqiqpgc1lnt9fnja6hv8v.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.jewelry_app",
+            "certificate_hash": "cf342df489a86d3f8ad882abcad26dac19800cca"
+          }
+        },
+        {
+          "client_id": "79453872525-hhmmp0liddhcgkun4vltis0e0el4nrqd.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDNOWdIcX9v4zbss77xGaKx3bpVtjJbTOk"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "79453872525-hhmmp0liddhcgkun4vltis0e0el4nrqd.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "79453872525-jqkhqv0500qspoc0q2rptvhequcfitrj.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.jewelryApp"
+              }
+            }
+          ]
         }
       }
     }
