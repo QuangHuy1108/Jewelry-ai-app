@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../router/app_router.dart';
 
 class VerifyCodeScreen extends StatefulWidget {
@@ -101,7 +102,13 @@ class _VerifyCodeScreenState extends State<VerifyCodeScreen> with SingleTickerPr
         // Correctly navigate to New Password screen
         Navigator.pushReplacementNamed(context, AppRouter.newPassword);
       } else {
-        Navigator.pushReplacementNamed(context, AppRouter.signin);
+        // Mark as first time user if they just verified their account (signed up)
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('isFirstTimeUser', true);
+        
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, AppRouter.profile);
+        }
       }
     }
   }

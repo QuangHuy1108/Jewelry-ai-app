@@ -13,6 +13,12 @@ import '../features/checkout/screens/checkout_screen.dart';
 import '../features/chat_ai/screens/chat_screen.dart';
 import '../features/auth/screens/complete_profile_screen.dart';
 import '../features/auth/screens/welcome_screen.dart';
+import '../features/onboarding/screens/enable_notification.dart';
+import '../features/onboarding/screens/location_permission_screen.dart';
+import '../features/onboarding/screens/enter_location_screen.dart';
+
+
+
 
 class AppRouter {
   static const splash = '/splash';
@@ -29,6 +35,11 @@ class AppRouter {
   static const profile = '/profile';
   static const welcome = '/welcome';
   static const newPassword = '/new-password';
+  static const enableNotification = '/enable-notification';
+  static const locationPermission = '/location-permission';
+  static const enterLocation = '/new-password';
+
+
 
   static Map<String, WidgetBuilder> routes = {
     splash: (_) => const SplashScreen(),
@@ -51,5 +62,8 @@ class AppRouter {
     profile: (_) => const CompleteProfileScreen(),
     welcome: (_) => const WelcomeScreen(),
     newPassword: (_) => const NewPasswordScreen(),
+    enableNotification: (_) => const EnableNotificationScreen(),
+    locationPermission: (_) => const LocationPermissionScreen(),
+    enterLocation: (_) => const EnterLocationScreen(),
   };
 }

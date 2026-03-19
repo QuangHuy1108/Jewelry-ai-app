@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'dart:io'; // Thêm thư viện này để đọc File ảnh
 import 'package:image_picker/image_picker.dart'; // Thư viện chọn ảnh
 import 'package:country_picker/country_picker.dart'; // Thư viện chọn mã vùng có thanh tìm kiếm
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../router/app_router.dart';
 
 class CompleteProfileScreen extends StatefulWidget {
@@ -72,8 +73,20 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
           const SnackBar(content: Text("Profile completed successfully!"), backgroundColor: Colors.green),
         );
 
-        // Mở comment để chuyển về trang Home sau khi hoàn thành
-        Navigator.pushReplacementNamed(context, AppRouter.home);
+        // FEATURE: Only ask for notification permission for first-time users
+        final prefs = await SharedPreferences.getInstance();
+        bool isFirstTime = prefs.getBool('isFirstTimeUser') ?? true;
+
+        if (isFirstTime) {
+          await prefs.setBool('isFirstTimeUser', false);
+          if (mounted) {
+            Navigator.pushReplacementNamed(context, AppRouter.enableNotification);
+          }
+        } else {
+          if (mounted) {
+            Navigator.pushReplacementNamed(context, AppRouter.home);
+          }
+        }
       }
     }
   }
