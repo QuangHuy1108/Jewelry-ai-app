@@ -10,33 +10,68 @@ class CategoryList extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16),
-          child: Text("Category",
-              style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 16),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                "Category",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black),
+              ),
+              GestureDetector(
+                onTap: () {},
+                child: const Text(
+                  "See All",
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                ),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 16),
         SizedBox(
-          height: 90,
+          height: 100,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             itemCount: categories.length,
+            padding: const EdgeInsets.symmetric(horizontal: 12), // Match the horizontal padding of 16 (-4 from item margin)
             itemBuilder: (context, index) {
-              return Column(
-                children: [
-                  Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 10),
-                    width: 60,
-                    height: 60,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white,
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Column(
+                  children: [
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () {},
+                        borderRadius: BorderRadius.circular(35),
+                        child: Container(
+                          width: 65,
+                          height: 65,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 5,
+                                offset: const Offset(0, 2),
+                              )
+                            ],
+                          ),
+                          child: const Icon(Icons.diamond_outlined, size: 28, color: Colors.black87),
+                        ),
+                      ),
                     ),
-                    child: const Icon(Icons.diamond),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(categories[index])
-                ],
+                    const SizedBox(height: 8),
+                    Text(
+                      categories[index],
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                    )
+                  ],
+                ),
               );
             },
           ),

@@ -8,30 +8,24 @@ class BannerWidget extends StatelessWidget {
     final height = MediaQuery.of(context).size.height;
 
     return Container(
-      height: height * 0.2, // 🔥 50% màn hình
+      height: height * 0.2,
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30), // 🔥 bo cong xịn
+        borderRadius: BorderRadius.circular(30),
         image: const DecorationImage(
-          image: NetworkImage(
-            "https://i.imgur.com/8Km9tLL.jpg",
-          ),
+          image: NetworkImage("https://i.postimg.cc/rFH5w1QQ/banner.jpg"),
           fit: BoxFit.cover,
         ),
       ),
       child: Stack(
         children: [
-          // 🔥 Gradient overlay
           Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(30),
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [
-                  Colors.transparent,
-                  Colors.black.withOpacity(0.7),
-                ],
+                colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
               ),
             ),
           ),
@@ -58,10 +52,10 @@ class BannerWidget extends StatelessWidget {
                     backgroundColor: Colors.green,
                   ),
                   child: const Text("Shop Now"),
-                )
+                ),
               ],
             ),
-          )
+          ),
         ],
       ),
     );

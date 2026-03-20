@@ -5,7 +5,7 @@ class ProductProvider extends ChangeNotifier {
     {
       "name": "Diamond Ring",
       "price": "\$299",
-      "image": "https://i.imgur.com/8Km9tLL.jpg"
+      "image": "https://i.postimg.cc/4yh339Lk/h7.jpg"
     }
   ];
 }

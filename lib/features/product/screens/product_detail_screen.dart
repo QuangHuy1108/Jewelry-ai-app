@@ -9,14 +9,11 @@ class ProductDetailScreen extends StatelessWidget {
       appBar: AppBar(title: const Text("Product Detail")),
       body: Column(
         children: [
-          Image.network("https://i.imgur.com/8Km9tLL.jpg"),
+          Image.network("https://i.postimg.cc/4yh339Lk/h7.jpg"),
           const SizedBox(height: 10),
           const Text("Diamond Ring", style: TextStyle(fontSize: 20)),
           const Text("\$299", style: TextStyle(color: Colors.orange)),
-          ElevatedButton(
-            onPressed: () {},
-            child: const Text("Add to Cart"),
-          )
+          ElevatedButton(onPressed: () {}, child: const Text("Add to Cart")),
         ],
       ),
     );

@@ -12,15 +12,30 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
-      body: const SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              HomeHeader(),
-              OfferBanner(),
-              CategoryList(),
-              ProductGrid(),
-            ],
+      body: SafeArea(
+        child: TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0.0, end: 1.0),
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.easeOutCubic,
+          builder: (context, value, child) {
+            return Transform.translate(
+              offset: Offset(0, 20 * (1 - value)),
+              child: Opacity(
+                opacity: value,
+                child: child,
+              ),
+            );
+          },
+          child: const SingleChildScrollView(
+            child: Column(
+              children: [
+                HomeHeader(),
+                OfferBanner(),
+                CategoryList(),
+                ProductGrid(),
+                SizedBox(height: 20),
+              ],
+            ),
           ),
         ),
       ),
