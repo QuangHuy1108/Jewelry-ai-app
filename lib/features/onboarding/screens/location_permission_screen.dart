@@ -125,7 +125,7 @@ class _LocationPermissionScreenState extends State<LocationPermissionScreen> wit
 
       // 6. Chuyển thẳng về Trang chủ
       if (mounted) {
-        Navigator.pushReplacementNamed(context, AppRouter.home);
+        Navigator.pushNamedAndRemoveUntil(context, AppRouter.home, (route) => false);
       }
 
     } catch (e) {

@@ -9,6 +9,8 @@ import '../features/auth/screens/new_password_screen.dart';
 import '../features/home/screens/home_screen.dart';
 import 'package:jewelry_app/features/product/screens/product_detail_screen.dart';
 import '../features/cart/screens/cart_screen.dart';
+import '../features/product/screens/review_screen.dart';
+import '../features/product/screens/leave_review_screen.dart';
 import '../features/checkout/screens/checkout_screen.dart';
 import '../features/chat_ai/screens/chat_screen.dart';
 import '../features/auth/screens/complete_profile_screen.dart';
@@ -16,6 +18,8 @@ import '../features/auth/screens/welcome_screen.dart';
 import '../features/onboarding/screens/enable_notification.dart';
 import '../features/onboarding/screens/location_permission_screen.dart';
 import '../features/onboarding/screens/enter_location_screen.dart';
+import '../features/camera/screens/camera_screen.dart';
+import '../features/wishlist/screens/wishlist_screen.dart';
 
 class AppRouter {
   static const splash = '/splash';
@@ -35,6 +39,10 @@ class AppRouter {
   static const enableNotification = '/enable-notification';
   static const locationPermission = '/location-permission';
   static const enterLocation = '/enter-location';
+  static const camera = '/camera';
+  static const wishlist = '/wishlist';
+  static const review = '/review';
+  static const leaveReview = '/leave-review';
 
   static Map<String, WidgetBuilder> routes = {
     splash: (_) => const SplashScreen(),
@@ -60,5 +68,9 @@ class AppRouter {
     enableNotification: (_) => const EnableNotificationScreen(),
     locationPermission: (_) => const LocationPermissionScreen(),
     enterLocation: (_) => const EnterLocationScreen(),
+    camera: (_) => const CameraScannerScreen(),
+    wishlist: (_) => const WishlistScreen(),
+    review: (_) => const ProductReviewScreen(),
+    leaveReview: (_) => const LeaveReviewScreen(),
   };
 }

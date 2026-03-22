@@ -50,10 +50,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     bool isLoggedIn = false; // Mặc định là chưa đăng nhập
 
     if (isLoggedIn) {
-      // Nếu đã đăng nhập -> Vào Home
       Navigator.pushReplacementNamed(context, AppRouter.home);
     } else {
-      // Theo roadmap: Sau Splash là Welcome screen
       Navigator.pushReplacementNamed(context, AppRouter.welcome);
     }
   }

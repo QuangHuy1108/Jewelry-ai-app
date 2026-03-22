@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../product/widgets/product_card.dart';
+import '../../product/screens/best_seller_screen.dart';
 
 class ProductGrid extends StatelessWidget {
   const ProductGrid({super.key});
@@ -8,21 +9,25 @@ class ProductGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final products = [
       {
+        "id": "pg1",
         "name": "Gold Ring",
         "price": "\$1200",
         "image": "https://i.postimg.cc/cHWq3842/h8.jpg",
       },
       {
+        "id": "pg2",
         "name": "Diamond Ring",
         "price": "\$2500",
         "image": "https://i.postimg.cc/4yh339Lk/h7.jpg",
       },
       {
+        "id": "pg3",
         "name": "Silver Bracelet",
         "price": "\$450",
         "image": "https://i.postimg.cc/zv06gtVy/h9.jpg",
       },
       {
+        "id": "pg4",
         "name": "Pearl Necklace",
         "price": "\$890",
         "image": "https://i.postimg.cc/pL94mBxp/h10.jpg",
@@ -47,7 +52,12 @@ class ProductGrid extends StatelessWidget {
                 ),
               ),
               GestureDetector(
-                onTap: () {},
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const BestSellerScreen()),
+                  );
+                },
                 child: const Text(
                   "See All",
                   style: TextStyle(fontSize: 14, color: Colors.grey),
@@ -71,9 +81,7 @@ class ProductGrid extends StatelessWidget {
             itemBuilder: (context, index) {
               final p = products[index];
               return ProductCard(
-                name: p["name"]!,
-                price: p["price"]!,
-                image: p["image"]!,
+                product: p,
               );
             },
           ),

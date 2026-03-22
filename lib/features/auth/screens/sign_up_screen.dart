@@ -16,7 +16,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passController = TextEditingController();
-  final TextEditingController _confirmPassController = TextEditingController(); // MỚI
+  final TextEditingController _confirmPassController =
+      TextEditingController(); // MỚI
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true; // MỚI
@@ -140,7 +141,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
               const Text(
                 "Create Account",
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.black87),
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
@@ -150,9 +155,19 @@ class _SignUpScreenState extends State<SignUpScreen> {
               ),
               const SizedBox(height: 40),
 
-              _buildTextField(controller: _nameController, label: "Name", hint: "John Doe", focusNode: _nameFocus),
+              _buildTextField(
+                controller: _nameController,
+                label: "Name",
+                hint: "John Doe",
+                focusNode: _nameFocus,
+              ),
               const SizedBox(height: 20),
-              _buildTextField(controller: _emailController, label: "Email", hint: "example@gmail.com", focusNode: _emailFocus),
+              _buildTextField(
+                controller: _emailController,
+                label: "Email",
+                hint: "example@gmail.com",
+                focusNode: _emailFocus,
+              ),
               const SizedBox(height: 20),
 
               // Ô Mật khẩu
@@ -163,7 +178,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 isPassword: true,
                 obscureText: _obscurePassword, // Truyền biến riêng
                 focusNode: _passFocus,
-                onToggle: () => setState(() => _obscurePassword = !_obscurePassword), // Callback riêng
+                onToggle: () => setState(
+                  () => _obscurePassword = !_obscurePassword,
+                ), // Callback riêng
               ),
               const SizedBox(height: 20),
 
@@ -175,7 +192,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 isPassword: true,
                 obscureText: _obscureConfirmPassword, // Truyền biến riêng
                 focusNode: _confirmPassFocus,
-                onToggle: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword), // Callback riêng
+                onToggle: () => setState(
+                  () => _obscureConfirmPassword = !_obscureConfirmPassword,
+                ), // Callback riêng
               ),
 
               const SizedBox(height: 24),
@@ -192,8 +211,22 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     disabledBackgroundColor: Colors.grey.shade300,
                   ),
                   child: _isLoading
-                      ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Text("Sign Up", style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text(
+                          "Sign Up",
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                 ),
               ),
 
@@ -229,7 +262,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
       final GoogleSignInAuthentication googleAuth = googleUser.authentication;
 
       // In version 7.0+, accessToken is obtained via authorizationClient
-      final GoogleSignInClientAuthorization? clientAuth = await googleUser.authorizationClient.authorizationForScopes([]);
+      final GoogleSignInClientAuthorization? clientAuth = await googleUser
+          .authorizationClient
+          .authorizationForScopes([]);
 
       final AuthCredential credential = GoogleAuthProvider.credential(
         accessToken: clientAuth?.accessToken,
@@ -240,7 +275,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
       await _saveLoginStatus();
 
       if (mounted) {
-        Navigator.pushReplacementNamed(context, AppRouter.home);
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRouter.home,
+          (route) => false,
+        );
       }
     } on FirebaseAuthException catch (e) {
       _showError(e.message ?? "Lỗi đăng nhập Google!");
@@ -250,7 +289,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
       if (mounted) setState(() => _isLoading = false);
     }
   }
-
 
   // --- WIDGET CON ĐÃ TỐI ƯU (Sửa đổi để dùng cho cả 2 ô mật khẩu) ---
 
@@ -266,13 +304,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+        ),
         const SizedBox(height: 8),
         Container(
           decoration: BoxDecoration(
             color: const Color(0xFFF3F4F6),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: focusNode.hasFocus ? Colors.black87 : Colors.transparent),
+            border: Border.all(
+              color: focusNode.hasFocus ? Colors.black87 : Colors.transparent,
+            ),
           ),
           child: TextField(
             controller: controller,
@@ -281,11 +324,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
             decoration: InputDecoration(
               hintText: hint,
               border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              suffixIcon: isPassword ? IconButton(
-                icon: Icon(obscureText ? Icons.visibility_off : Icons.visibility),
-                onPressed: onToggle, // Dùng callback truyền vào
-              ) : null,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 16,
+              ),
+              suffixIcon: isPassword
+                  ? IconButton(
+                      icon: Icon(
+                        obscureText ? Icons.visibility_off : Icons.visibility,
+                      ),
+                      onPressed: onToggle, // Dùng callback truyền vào
+                    )
+                  : null,
             ),
           ),
         ),
@@ -311,26 +361,38 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 const TextSpan(text: "Agree with "),
                 TextSpan(
                   text: "Terms & Condition",
-                  style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, decoration: TextDecoration.underline),
-                  recognizer: TapGestureRecognizer()..onTap = () {showDialog(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16), // Bo góc cho Dialog đẹp hơn
-                      ),
-                      title: const Text(
-                        "Terms & Conditions",
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
-                      ),
-                      // Bọc nội dung bằng Scrollbar và SingleChildScrollView để có thể kéo xuống
-                      content: SizedBox(
-                        width: double.maxFinite,
-                        child: Scrollbar(
-                          thumbVisibility: true, // Hiện thanh cuộn bên phải
-                          child: SingleChildScrollView(
-                            physics: const BouncingScrollPhysics(), // Hiệu ứng cuộn mượt
-                            child: const Text(
-                              "Nội dung Điều khoản & Điều kiện của ứng dụng bắt đầu ở đây.\n\n"
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontWeight: FontWeight.bold,
+                    decoration: TextDecoration.underline,
+                  ),
+                  recognizer: TapGestureRecognizer()
+                    ..onTap = () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                              16,
+                            ), // Bo góc cho Dialog đẹp hơn
+                          ),
+                          title: const Text(
+                            "Terms & Conditions",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 20,
+                            ),
+                          ),
+                          // Bọc nội dung bằng Scrollbar và SingleChildScrollView để có thể kéo xuống
+                          content: SizedBox(
+                            width: double.maxFinite,
+                            child: Scrollbar(
+                              thumbVisibility: true, // Hiện thanh cuộn bên phải
+                              child: SingleChildScrollView(
+                                physics:
+                                    const BouncingScrollPhysics(), // Hiệu ứng cuộn mượt
+                                child: const Text(
+                                  "Nội dung Điều khoản & Điều kiện của ứng dụng bắt đầu ở đây.\n\n"
                                   "1. Chấp nhận điều khoản\n"
                                   "Bằng việc sử dụng ứng dụng này, bạn đồng ý với tất cả các điều khoản và điều kiện được nêu ra dưới đây. Bạn có thể viết nội dung dài bao nhiêu tùy thích.\n\n"
                                   "2. Quyền riêng tư\n"
@@ -340,22 +402,30 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                   "4. Thay đổi điều khoản\n"
                                   "Chúng tôi có quyền thay đổi các điều khoản này bất kỳ lúc nào mà không cần thông báo trước. Việc tiếp tục sử dụng ứng dụng đồng nghĩa với việc bạn chấp nhận các thay đổi đó.\n\n"
                                   "5. ... (Bạn có thể thêm hàng trăm dòng chữ nữa vào đây, hộp thoại sẽ tự động có thanh cuộn để kéo xuống).",
-                              style: TextStyle(fontSize: 14, color: Colors.black87, height: 1.5),
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.black87,
+                                    height: 1.5,
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
+                          actions: [
+                            TextButton(
+                              onPressed: () =>
+                                  Navigator.pop(context), // Đóng Dialog
+                              child: const Text(
+                                "Đóng",
+                                style: TextStyle(
+                                  color: Colors.black,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context), // Đóng Dialog
-                          child: const Text(
-                            "Đóng",
-                            style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
+                      );
                     },
                 ),
               ],
@@ -366,12 +436,21 @@ class _SignUpScreenState extends State<SignUpScreen> {
     );
   }
 
-  Widget _socialButton(IconData icon, {Color? color, double iconSize = 24, VoidCallback? onTap}) {
+  Widget _socialButton(
+    IconData icon, {
+    Color? color,
+    double iconSize = 24,
+    VoidCallback? onTap,
+  }) {
     return GestureDetector(
       onTap: onTap, // Thêm hành động khi nhấn
       child: Container(
-        width: 56, height: 56,
-        decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.grey.shade200)),
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.grey.shade200),
+        ),
         child: Icon(icon, color: color ?? Colors.black87, size: iconSize),
       ),
     );
@@ -380,11 +459,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Widget _buildSocialSection() {
     return Column(
       children: [
-        Row(children: [
-          Expanded(child: Divider(color: Colors.grey.shade300)),
-          const Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text("Or sign in with")),
-          Expanded(child: Divider(color: Colors.grey.shade300)),
-        ]),
+        Row(
+          children: [
+            Expanded(child: Divider(color: Colors.grey.shade300)),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Text("Or sign in with"),
+            ),
+            Expanded(child: Divider(color: Colors.grey.shade300)),
+          ],
+        ),
         const SizedBox(height: 24),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -392,7 +476,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
             _socialButton(Icons.apple),
             const SizedBox(width: 20),
             // Gắn sự kiện onTap vào đây
-            _socialButton(Icons.g_mobiledata, iconSize: 32, onTap: _signInWithGoogle),
+            _socialButton(
+              Icons.g_mobiledata,
+              iconSize: 32,
+              onTap: _signInWithGoogle,
+            ),
             const SizedBox(width: 20),
             _socialButton(Icons.facebook, color: Colors.blue),
           ],
@@ -410,8 +498,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
             const TextSpan(text: "Already have an account? "),
             TextSpan(
               text: "Sign In",
-              style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, decoration: TextDecoration.underline),
-              recognizer: TapGestureRecognizer()..onTap = () => Navigator.pushReplacementNamed(context, AppRouter.signin),
+              style: const TextStyle(
+                color: Colors.black,
+                fontWeight: FontWeight.bold,
+                decoration: TextDecoration.underline,
+              ),
+              recognizer: TapGestureRecognizer()
+                ..onTap = () =>
+                    Navigator.pushReplacementNamed(context, AppRouter.signin),
             ),
           ],
         ),

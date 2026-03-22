@@ -200,7 +200,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
           await prefs.setBool('isFirstTimeUser', false);
           Navigator.pushReplacementNamed(context, AppRouter.enableNotification);
         } else {
-          Navigator.pushReplacementNamed(context, AppRouter.home);
+          Navigator.pushNamedAndRemoveUntil(context, AppRouter.home, (route) => false);
         }
       }
     } on FirebaseAuthException catch (e) {

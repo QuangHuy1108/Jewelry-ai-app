@@ -4,6 +4,7 @@ import '../widgets/offer_banner.dart';
 import '../widgets/category_list.dart';
 import '../widgets/product_grid.dart';
 import 'package:jewelry_app/features/home/widgets/bottom_nav.dart';
+import '../widgets/popular_products_section.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -33,6 +34,7 @@ class HomeScreen extends StatelessWidget {
                 OfferBanner(),
                 CategoryList(),
                 ProductGrid(),
+                PopularProductsSection(),
                 SizedBox(height: 20),
               ],
             ),

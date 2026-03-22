@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/state/filter_state.dart';
 import '../../filter/widgets/advanced_filter_bottom_sheet.dart';
 import '../../filter/widgets/sort_bottom_sheet.dart';
+import '../../../../router/app_navigation.dart';
 
 class SearchResultsScreen extends StatefulWidget {
   final String initialQuery;
@@ -491,7 +492,16 @@ class _ResultCardState extends State<_ResultCard> {
       onTapDown: (_) => setState(() => _isPressed = true),
       onTapUp: (_) {
         setState(() => _isPressed = false);
-        // Navigate to detail
+        AppNavigation.toProductDetail(
+          context,
+          product: {
+            'name': widget.name,
+            'price': double.tryParse(widget.price.replaceAll('\$', '')) ?? 0.0,
+            'originalPrice': double.tryParse(widget.oldPrice.replaceAll('\$', '')) ?? 0.0,
+            'rating': double.tryParse(widget.rating) ?? 0.0,
+            'image': widget.image,
+          },
+        );
       },
       onTapCancel: () => setState(() => _isPressed = false),
       child: AnimatedScale(

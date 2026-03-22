@@ -5,6 +5,7 @@ import '../../filter/widgets/quick_filter_bottom_sheet.dart';
 import '../../../../core/state/filter_state.dart';
 import 'search_bar_widget.dart';
 import 'suggestion_dropdown.dart';
+import '../../camera/screens/camera_screen.dart';
 
 class HomeHeader extends StatefulWidget {
   const HomeHeader({super.key});
@@ -222,10 +223,17 @@ class _HomeHeaderState extends State<HomeHeader> {
                   ),
                 ],
               ),
-              const Icon(
-                Icons.notifications_none,
-                color: Colors.white,
-                size: 28,
+              Row(
+                children: [
+                  _buildHeaderIcon(Icons.camera_alt_outlined, () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const CameraScannerScreen()),
+                    );
+                  }),
+                  const SizedBox(width: 12),
+                  _buildHeaderIcon(Icons.notifications_none, () {}),
+                ],
               ),
             ],
           ),
@@ -268,6 +276,17 @@ class _HomeHeaderState extends State<HomeHeader> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderIcon(IconData icon, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Icon(
+        icon,
+        color: Colors.white,
+        size: 28,
       ),
     );
   }

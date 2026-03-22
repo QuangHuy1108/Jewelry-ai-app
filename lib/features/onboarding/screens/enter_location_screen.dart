@@ -127,7 +127,7 @@ class _EnterLocationScreenState extends State<EnterLocationScreen> {
       await prefs.setString('userLocation', address);
 
       // 4. Chuyển về trang chủ bằng AppRouter
-      if (mounted) Navigator.pushReplacementNamed(context, AppRouter.home);
+      if (mounted) Navigator.pushNamedAndRemoveUntil(context, AppRouter.home, (route) => false);
 
     } catch (e) {
       if (mounted) {
@@ -149,7 +149,7 @@ class _EnterLocationScreenState extends State<EnterLocationScreen> {
 
     // Chuyển hướng về trang chủ bằng AppRouter
     if (mounted) {
-      Navigator.pushReplacementNamed(context, AppRouter.home);
+      Navigator.pushNamedAndRemoveUntil(context, AppRouter.home, (route) => false);
     }
   }
 

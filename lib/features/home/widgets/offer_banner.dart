@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
+import '../../offer/screens/special_offers_screen.dart';
 
 class OfferBanner extends StatefulWidget {
   const OfferBanner({super.key});
@@ -32,7 +33,12 @@ class _OfferBannerState extends State<OfferBanner> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black),
               ),
               GestureDetector(
-                onTap: () {},
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const SpecialOffersScreen()),
+                  );
+                },
                 child: const Text(
                   "See All",
                   style: TextStyle(fontSize: 14, color: Colors.grey),
@@ -122,7 +128,12 @@ class _OfferBannerState extends State<OfferBanner> {
                       style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)), // Reduced from 26
                 ),
                 ElevatedButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const SpecialOffersScreen()),
+                    );
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
                     foregroundColor: Colors.black,

@@ -58,7 +58,11 @@ class _SignInScreenState extends State<SignInScreen> {
       await _saveLoginStatus();
 
       if (mounted) {
-        Navigator.pushReplacementNamed(context, AppRouter.home);
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRouter.home,
+          (route) => false,
+        );
       }
     } on FirebaseAuthException catch (e) {
       String msg = "Sai email hoặc mật khẩu!";
@@ -98,7 +102,11 @@ class _SignInScreenState extends State<SignInScreen> {
               const Text(
                 "Sign In",
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.black87),
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
@@ -127,10 +135,15 @@ class _SignInScreenState extends State<SignInScreen> {
               Align(
                 alignment: Alignment.centerRight,
                 child: GestureDetector(
-                  onTap: () => Navigator.pushNamed(context, AppRouter.forgotPassword),
+                  onTap: () =>
+                      Navigator.pushNamed(context, AppRouter.forgotPassword),
                   child: Text(
                     "Forgot Password?",
-                    style: TextStyle(fontSize: 13, color: Colors.grey.shade600, decoration: TextDecoration.underline),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade600,
+                      decoration: TextDecoration.underline,
+                    ),
                   ),
                 ),
               ),
@@ -147,7 +160,14 @@ class _SignInScreenState extends State<SignInScreen> {
                   ),
                   child: _isLoading
                       ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text("Sign In", style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
+                      : const Text(
+                          "Sign In",
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                 ),
               ),
 
@@ -166,7 +186,7 @@ class _SignInScreenState extends State<SignInScreen> {
     setState(() => _isLoading = true);
     try {
       final GoogleSignIn googleSignIn = GoogleSignIn.instance;
-      
+
       // Check if platform supports authentication
       if (!googleSignIn.supportsAuthenticate()) {
         _showError("Google Sign-In is not supported on this platform.");
@@ -181,10 +201,12 @@ class _SignInScreenState extends State<SignInScreen> {
       }
 
       final GoogleSignInAuthentication googleAuth = googleUser.authentication;
-      
+
       // In version 7.0+, accessToken is obtained via authorizationClient
-      final GoogleSignInClientAuthorization? clientAuth = await googleUser.authorizationClient.authorizationForScopes([]);
-      
+      final GoogleSignInClientAuthorization? clientAuth = await googleUser
+          .authorizationClient
+          .authorizationForScopes([]);
+
       final AuthCredential credential = GoogleAuthProvider.credential(
         accessToken: clientAuth?.accessToken,
         idToken: googleAuth.idToken,
@@ -194,7 +216,11 @@ class _SignInScreenState extends State<SignInScreen> {
       await _saveLoginStatus();
 
       if (mounted) {
-        Navigator.pushReplacementNamed(context, AppRouter.home);
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          AppRouter.home,
+          (route) => false,
+        );
       }
     } on FirebaseAuthException catch (e) {
       _showError(e.message ?? "Lỗi đăng nhập Google!");
@@ -205,18 +231,29 @@ class _SignInScreenState extends State<SignInScreen> {
     }
   }
 
-  Widget _buildTextField({required TextEditingController controller, required String label, required String hint, bool isPassword = false, required FocusNode focusNode}) {
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    bool isPassword = false,
+    required FocusNode focusNode,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+        ),
         const SizedBox(height: 8),
         AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           decoration: BoxDecoration(
             color: const Color(0xFFF3F4F6),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: focusNode.hasFocus ? Colors.black87 : Colors.transparent),
+            border: Border.all(
+              color: focusNode.hasFocus ? Colors.black87 : Colors.transparent,
+            ),
           ),
           child: TextField(
             controller: controller,
@@ -225,11 +262,22 @@ class _SignInScreenState extends State<SignInScreen> {
             decoration: InputDecoration(
               hintText: hint,
               border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              suffixIcon: isPassword ? IconButton(
-                icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, size: 20),
-                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-              ) : null,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 16,
+              ),
+              suffixIcon: isPassword
+                  ? IconButton(
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_off
+                            : Icons.visibility,
+                        size: 20,
+                      ),
+                      onPressed: () =>
+                          setState(() => _obscurePassword = !_obscurePassword),
+                    )
+                  : null,
             ),
           ),
         ),
@@ -240,18 +288,27 @@ class _SignInScreenState extends State<SignInScreen> {
   Widget _buildSocialSection() {
     return Column(
       children: [
-        Row(children: [
-          Expanded(child: Divider(color: Colors.grey.shade300)),
-          const Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text("Or sign in with")),
-          Expanded(child: Divider(color: Colors.grey.shade300)),
-        ]),
+        Row(
+          children: [
+            Expanded(child: Divider(color: Colors.grey.shade300)),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Text("Or sign in with"),
+            ),
+            Expanded(child: Divider(color: Colors.grey.shade300)),
+          ],
+        ),
         const SizedBox(height: 24),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             _socialButton(Icons.apple),
             const SizedBox(width: 20),
-            _socialButton(Icons.g_mobiledata, iconSize: 32, onTap: _signInWithGoogle),
+            _socialButton(
+              Icons.g_mobiledata,
+              iconSize: 32,
+              onTap: _signInWithGoogle,
+            ),
             const SizedBox(width: 20),
             _socialButton(Icons.facebook, color: Colors.blue),
           ],
@@ -259,13 +316,22 @@ class _SignInScreenState extends State<SignInScreen> {
       ],
     );
   }
-  
-  Widget _socialButton(IconData icon, {Color? color, double iconSize = 24, VoidCallback? onTap}) {
+
+  Widget _socialButton(
+    IconData icon, {
+    Color? color,
+    double iconSize = 24,
+    VoidCallback? onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 56, height: 56,
-        decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.grey.shade200)),
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.grey.shade200),
+        ),
         child: Icon(icon, color: color ?? Colors.black87, size: iconSize),
       ),
     );
@@ -280,8 +346,14 @@ class _SignInScreenState extends State<SignInScreen> {
             const TextSpan(text: "Don't have an account? "),
             TextSpan(
               text: "Sign Up",
-              style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, decoration: TextDecoration.underline),
-              recognizer: TapGestureRecognizer()..onTap = () => Navigator.pushReplacementNamed(context, AppRouter.signup),
+              style: const TextStyle(
+                color: Colors.black,
+                fontWeight: FontWeight.bold,
+                decoration: TextDecoration.underline,
+              ),
+              recognizer: TapGestureRecognizer()
+                ..onTap = () =>
+                    Navigator.pushReplacementNamed(context, AppRouter.signup),
             ),
           ],
         ),

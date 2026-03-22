@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-class SearchBarWidget extends StatelessWidget {
+class SearchBarWidget extends StatefulWidget {
   final TextEditingController controller;
   final FocusNode? focusNode;
   final Function(String) onChanged;
@@ -21,12 +21,46 @@ class SearchBarWidget extends StatelessWidget {
   });
 
   @override
+  State<SearchBarWidget> createState() => _SearchBarWidgetState();
+}
+
+class _SearchBarWidgetState extends State<SearchBarWidget> {
+  DateTime? _lastSubmitTime;
+
+  void _handleSearch() {
+    if (widget.readOnly) {
+      if (widget.onTap != null) widget.onTap!();
+      return;
+    }
+
+    final now = DateTime.now();
+    if (_lastSubmitTime != null && now.difference(_lastSubmitTime!).inMilliseconds < 500) {
+      return; // prevent duplicate requests
+    }
+    _lastSubmitTime = now;
+
+    final text = widget.controller.text.trim();
+    if (text.isNotEmpty) {
+      widget.onSubmitted(text);
+      FocusScope.of(context).unfocus();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Please enter a keyword"),
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     // Determine if we show a clear button or a QR code scanner dummy icon
-    final bool showClear = controller.text.isNotEmpty && !readOnly;
+    final bool showClear = widget.controller.text.isNotEmpty && !widget.readOnly;
 
     return GestureDetector(
-      onTap: onTap,
+      onTap: widget.onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
         height: 45,
@@ -37,20 +71,27 @@ class SearchBarWidget extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12),
         child: Row(
           children: [
-            const Icon(Icons.search, color: Colors.grey),
-            const SizedBox(width: 8),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: _handleSearch,
+                child: const Padding(
+                  padding: EdgeInsets.all(4.0),
+                  child: Icon(Icons.search, color: Colors.grey),
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
             Expanded(
               child: IgnorePointer(
-                ignoring: readOnly,
+                ignoring: widget.readOnly,
                 child: TextField(
-                  controller: controller,
-                  focusNode: focusNode,
-                  readOnly: readOnly,
-                  onChanged: (val) {
-                    onChanged(val);
-                    // trigger a rebuild in parent so the 'x' button toggles properly
-                  },
-                  onSubmitted: onSubmitted,
+                  controller: widget.controller,
+                  focusNode: widget.focusNode,
+                  readOnly: widget.readOnly,
+                  onChanged: widget.onChanged,
+                  onSubmitted: (_) => _handleSearch(),
                   textInputAction: TextInputAction.search,
                   decoration: const InputDecoration(
                     hintText: "Search..",
@@ -64,10 +105,10 @@ class SearchBarWidget extends StatelessWidget {
             ),
             if (showClear)
               GestureDetector(
-                onTap: onClear,
+                onTap: widget.onClear,
                 child: const Icon(Icons.close, color: Colors.grey, size: 20),
               )
-            else if (readOnly)
+            else if (widget.readOnly)
               const Icon(Icons.qr_code_scanner, color: Colors.grey, size: 20),
           ],
         ),
