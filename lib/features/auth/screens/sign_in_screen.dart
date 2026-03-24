@@ -1,3 +1,4 @@
+import 'package:jewelry_app/core/utils/luxury_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -74,9 +75,8 @@ class _SignInScreenState extends State<SignInScreen> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.redAccent),
-    );
+    LuxuryToast.show(context, message: message);
+
   }
 
   @override

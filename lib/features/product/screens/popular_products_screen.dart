@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
-import '../widgets/popular_product_list_item.dart';
+import '../widgets/product_card.dart';
 import '../../../router/app_navigation.dart';
 
 class PopularProductsScreen extends StatefulWidget {
@@ -223,7 +223,7 @@ class _PopularProductsScreenState extends State<PopularProductsScreen> {
       itemCount: _products.length,
       itemBuilder: (context, index) {
         final product = _products[index];
-        return PopularProductListItem(
+        return ProductCard(
           product: product,
           onTap: () {
             AppNavigation.toProductDetail(context, product: product);

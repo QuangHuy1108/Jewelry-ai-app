@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../category/screens/category_screen.dart';
 
 class CategoryList extends StatelessWidget {
   const CategoryList({super.key});
@@ -45,7 +46,14 @@ class CategoryList extends StatelessWidget {
                     Material(
                       color: Colors.transparent,
                       child: InkWell(
-                        onTap: () {},
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => CategoryScreen(categoryName: categories[index]),
+                            ),
+                          );
+                        },
                         borderRadius: BorderRadius.circular(35),
                         child: Container(
                           width: 65,

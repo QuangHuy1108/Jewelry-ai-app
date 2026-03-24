@@ -1,3 +1,4 @@
+import 'package:jewelry_app/core/utils/luxury_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:io'; // Thêm thư viện này để đọc File ảnh
@@ -80,9 +81,8 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
           // 2. Lỗi khi gửi SMS (VD: Sai định dạng số, bị Firebase chặn)
           verificationFailed: (FirebaseAuthException e) {
             setState(() => _isLoading = false);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(e.message ?? "Lỗi xác minh số điện thoại"), backgroundColor: Colors.red),
-            );
+            LuxuryToast.show(context, message: e.message ?? "Lỗi xác minh số điện thoại");
+
           },
 
           // 3. SMS đã được gửi thành công -> Hiển thị form nhập mã 6 số
@@ -96,9 +96,8 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
         );
       } catch (e) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Đã xảy ra lỗi không xác định"), backgroundColor: Colors.red),
-        );
+        LuxuryToast.show(context, message: "Đã xảy ra lỗi không xác định");
+
       }
     }
   }
@@ -158,9 +157,8 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                         await _linkPhoneAndCompleteProfile(credential);
                       } on FirebaseAuthException catch (e) {
                         setDialogState(() => isVerifying = false);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text("Mã OTP không chính xác!"), backgroundColor: Colors.red),
-                        );
+                        LuxuryToast.show(context, message: "Mã OTP không chính xác!");
+
                       }
                     },
                     style: ElevatedButton.styleFrom(backgroundColor: Colors.black),
@@ -189,9 +187,8 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
       // và lưu _nameController.text vào Cloud Firestore.
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Xác minh thành công!"), backgroundColor: Colors.green),
-        );
+        LuxuryToast.show(context, message: "Xác minh thành công!");
+
 
         final prefs = await SharedPreferences.getInstance();
         bool isFirstTime = prefs.getBool('isFirstTimeUser') ?? true;
@@ -204,9 +201,8 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
         }
       }
     } on FirebaseAuthException catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message ?? "Lỗi liên kết số điện thoại"), backgroundColor: Colors.red),
-      );
+      LuxuryToast.show(context, message: e.message ?? "Lỗi liên kết số điện thoại");
+
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

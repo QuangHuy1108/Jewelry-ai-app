@@ -1,3 +1,4 @@
+import 'package:jewelry_app/core/utils/luxury_toast.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -61,9 +62,7 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
     await Future.delayed(const Duration(seconds: 2));
     if (mounted) {
       setState(() => _isSubmitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Review submitted successfully!')),
-      );
+      LuxuryToast.show(context, message: 'Review submitted successfully!');
       Navigator.pop(context);
     }
   }
@@ -201,9 +200,7 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
             onPressed: () {
               final cart = Provider.of<CartProvider>(context, listen: false);
               cart.addToCart(_product);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Added back to cart')),
-              );
+              LuxuryToast.show(context, message: 'Added back to cart');
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF808080),

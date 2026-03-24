@@ -56,6 +56,9 @@ dependencies:
   geocoding: ^4.0.0
   google_sign_in: ^7.2.0
   share_plus: ^12.0.1
+  video_player: ^2.10.1
+  http: ^1.6.0
+  firebase_storage: ^13.1.0
 
 dev_dependencies:
   flutter_test:

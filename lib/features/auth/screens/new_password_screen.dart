@@ -1,3 +1,4 @@
+import 'package:jewelry_app/core/utils/luxury_toast.dart';
 import 'package:flutter/material.dart';
 import '../../../router/app_router.dart';
 
@@ -68,9 +69,8 @@ class _NewPasswordScreenState extends State<NewPasswordScreen> {
   }
 
   void _showSnackBar(String message, Color color) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: color, behavior: SnackBarBehavior.floating),
-    );
+    LuxuryToast.show(context, message: message);
+
   }
 
   void _showSuccessBottomSheet() {

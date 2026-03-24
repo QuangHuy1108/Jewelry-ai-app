@@ -1,3 +1,4 @@
+import 'package:jewelry_app/core/utils/luxury_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -46,13 +47,7 @@ class _CouponCardState extends State<CouponCard> with SingleTickerProviderStateM
     
     _controller.forward().then((_) => _controller.reverse());
     Clipboard.setData(ClipboardData(text: widget.code));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Code ${widget.code} Copied!'),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    LuxuryToast.show(context, message: 'Code ${widget.code} Copied!');
   }
 
   @override

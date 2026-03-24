@@ -1,3 +1,4 @@
+import 'package:jewelry_app/core/utils/luxury_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../../router/app_router.dart';
@@ -24,9 +25,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   Future<void> _handleResetPassword() async {
     final email = _emailController.text.trim();
     if (email.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please enter your email address")),
-      );
+      LuxuryToast.show(context, message: "Please enter your email address");
+
       return;
     }
 
@@ -41,9 +41,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
       
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Reset link sent to your email!")),
-        );
+        LuxuryToast.show(context, message: "Reset link sent to your email!");
+
         // After sending, we go to OTP/Verify screen as requested by flow
         Navigator.pushNamed(
           context, 
@@ -59,15 +58,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         } else if (e.code == 'invalid-email') {
           message = "The email address is badly formatted.";
         }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message), backgroundColor: Colors.redAccent)
-        );
+        LuxuryToast.show(context, message: message);
+
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("An unexpected error occurred."))
-        );
+        LuxuryToast.show(context, message: "An unexpected error occurred.");
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

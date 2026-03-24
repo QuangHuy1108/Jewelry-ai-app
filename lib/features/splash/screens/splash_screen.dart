@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-// Giả sử bạn dùng SharedPreferences để lưu token, hãy thêm: import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../router/app_router.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -44,12 +44,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   Future<void> _handleNavigation() async {
     if (!mounted) return;
 
-    // GIẢ LẬP KIỂM TRA AUTH (Bạn thay đoạn này bằng logic thực tế của app)
-    // Ví dụ: final prefs = await SharedPreferences.getInstance();
-    // String? token = prefs.getString('user_token');
-    bool isLoggedIn = false; // Mặc định là chưa đăng nhập
+    final user = await FirebaseAuth.instance.authStateChanges().first;
+    if (!mounted) return;
 
-    if (isLoggedIn) {
+    if (user != null) {
       Navigator.pushReplacementNamed(context, AppRouter.home);
     } else {
       Navigator.pushReplacementNamed(context, AppRouter.welcome);

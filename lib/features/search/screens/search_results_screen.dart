@@ -3,6 +3,7 @@ import '../../../../core/state/filter_state.dart';
 import '../../filter/widgets/advanced_filter_bottom_sheet.dart';
 import '../../filter/widgets/sort_bottom_sheet.dart';
 import '../../../../router/app_navigation.dart';
+import '../../product/widgets/product_card.dart';
 
 class SearchResultsScreen extends StatefulWidget {
   final String initialQuery;
@@ -369,9 +370,9 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
       itemCount: items.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        crossAxisSpacing: 15,
-        mainAxisSpacing: 20,
-        childAspectRatio: 0.7,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        childAspectRatio: 0.75,
       ),
       itemBuilder: (context, index) {
         final product = items[index];
@@ -386,12 +387,22 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
               child: Opacity(opacity: value, child: child),
             );
           },
-          child: _ResultCard(
-            name: product["name"],
-            price: product["price"],
-            oldPrice: product["oldPrice"],
-            rating: product["rating"],
-            image: product["image"],
+          child: ProductCard(
+            product: {
+              ...product,
+              'id': 'search_$index',
+            },
+            onTap: () {
+              AppNavigation.toProductDetail(
+                context,
+                product: {
+                  ...product,
+                  'id': 'search_$index',
+                  'price': double.tryParse(product["price"].toString().replaceAll('\$', '')) ?? 0.0,
+                  'rating': double.tryParse(product["rating"].toString()) ?? 0.0,
+                },
+              );
+            },
           ),
         );
       },
@@ -405,9 +416,9 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
       itemCount: 4,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        crossAxisSpacing: 15,
-        mainAxisSpacing: 20,
-        childAspectRatio: 0.7,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        childAspectRatio: 0.75,
       ),
       itemBuilder: (context, index) {
         return Column(
@@ -463,157 +474,6 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   }
 }
 
-class _ResultCard extends StatefulWidget {
-  final String name;
-  final String price;
-  final String oldPrice;
-  final String rating;
-  final String image;
-
-  const _ResultCard({
-    required this.name,
-    required this.price,
-    required this.oldPrice,
-    required this.rating,
-    required this.image,
-  });
-
-  @override
-  State<_ResultCard> createState() => _ResultCardState();
-}
-
-class _ResultCardState extends State<_ResultCard> {
-  bool _isPressed = false;
-  bool _isFavorite = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) {
-        setState(() => _isPressed = false);
-        AppNavigation.toProductDetail(
-          context,
-          product: {
-            'name': widget.name,
-            'price': double.tryParse(widget.price.replaceAll('\$', '')) ?? 0.0,
-            'originalPrice': double.tryParse(widget.oldPrice.replaceAll('\$', '')) ?? 0.0,
-            'rating': double.tryParse(widget.rating) ?? 0.0,
-            'image': widget.image,
-          },
-        );
-      },
-      onTapCancel: () => setState(() => _isPressed = false),
-      child: AnimatedScale(
-        scale: _isPressed ? 0.95 : 1.0,
-        duration: const Duration(milliseconds: 100),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Image Stack
-            Expanded(
-              child: Stack(
-                children: [
-                  Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF2F2F2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.network(widget.image, fit: BoxFit.cover),
-                    ),
-                  ),
-                  Positioned(
-                    top: 10,
-                    right: 10,
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _isFavorite = !_isFavorite;
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white,
-                        ),
-                        child: Icon(
-                          _isFavorite ? Icons.favorite : Icons.favorite_border,
-                          size: 16,
-                          color: _isFavorite ? Colors.red : Colors.grey,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            // Header: Name & Rating
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    widget.name,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF000000),
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Row(
-                  children: [
-                    const Icon(Icons.star, size: 14, color: Color(0xFFFFD700)),
-                    const SizedBox(width: 2),
-                    Text(
-                      widget.rating,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            // Prices
-            Row(
-              children: [
-                Text(
-                  widget.price,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  widget.oldPrice,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey,
-                    decoration: TextDecoration.lineThrough,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _AnimatedBackButton extends StatefulWidget {
   @override

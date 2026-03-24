@@ -1,3 +1,4 @@
+import 'package:jewelry_app/core/utils/luxury_toast.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:geolocator/geolocator.dart'; // Thư viện lấy tọa độ GPS
@@ -131,7 +132,7 @@ class _EnterLocationScreenState extends State<EnterLocationScreen> {
 
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+        LuxuryToast.show(context, message: e.toString());
       }
     } finally {
       if (mounted) setState(() { _isLoading = false; });

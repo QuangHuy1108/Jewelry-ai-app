@@ -2,7 +2,14 @@ import 'package:flutter/material.dart';
 import '../widgets/coupon_card.dart';
 
 class CouponScreen extends StatefulWidget {
-  const CouponScreen({super.key});
+  final String? cartItemId;
+  final Map<String, dynamic>? selectedVoucher;
+
+  const CouponScreen({
+    super.key,
+    this.cartItemId,
+    this.selectedVoucher,
+  });
 
   @override
   State<CouponScreen> createState() => _CouponScreenState();
@@ -65,7 +72,7 @@ class _CouponScreenState extends State<CouponScreen> {
             Padding(
               padding: const EdgeInsets.only(left: 20, top: 24, bottom: 16),
               child: const Text(
-                'Coupons for you',
+                'Vouchers for you',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -111,7 +118,7 @@ class _CouponScreenState extends State<CouponScreen> {
           const Expanded(
             child: Center(
               child: Text(
-                'Coupon',
+                'Voucher',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -145,7 +152,7 @@ class _CouponScreenState extends State<CouponScreen> {
             const Icon(Icons.sentiment_dissatisfied_outlined, size: 80, color: Color(0xFFEEEEEE)),
             const SizedBox(height: 16),
             const Text(
-              'You have no coupons available',
+              'You have no vouchers available',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -197,11 +204,18 @@ class _CouponScreenState extends State<CouponScreen> {
               ),
             );
           },
-          child: CouponCard(
-            code: coupon['code'],
-            condition: coupon['condition'],
-            discount: coupon['discount'],
-            isExpired: coupon['isExpired'] ?? false,
+          child: GestureDetector(
+            onTap: () {
+              if (widget.cartItemId != null && !(coupon['isExpired'] ?? false)) {
+                Navigator.pop(context, coupon);
+              }
+            },
+            child: CouponCard(
+              code: coupon['code'],
+              condition: coupon['condition'],
+              discount: coupon['discount'],
+              isExpired: coupon['isExpired'] ?? false,
+            ),
           ),
         );
       },

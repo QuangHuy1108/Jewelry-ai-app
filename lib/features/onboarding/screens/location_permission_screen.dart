@@ -1,3 +1,4 @@
+import 'package:jewelry_app/core/utils/luxury_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart'; // Thư viện lấy tọa độ GPS
 import 'package:geocoding/geocoding.dart'; // Thư viện dịch tọa độ sang địa chỉ Text
@@ -63,9 +64,8 @@ class _LocationPermissionScreenState extends State<LocationPermissionScreen> wit
     serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Vui lòng bật Dịch vụ định vị (GPS) trên thiết bị.')),
-        );
+        LuxuryToast.show(context, message: 'Vui lòng bật Dịch vụ định vị (GPS)');
+
       }
       return;
     }
@@ -76,9 +76,8 @@ class _LocationPermissionScreenState extends State<LocationPermissionScreen> wit
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Bạn đã từ chối quyền truy cập vị trí.')),
-          );
+          LuxuryToast.show(context, message: 'Bạn đã từ chối quyền truy cập vị trí.');
+
         }
         return;
       }
@@ -86,9 +85,8 @@ class _LocationPermissionScreenState extends State<LocationPermissionScreen> wit
 
     if (permission == LocationPermission.deniedForever) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Quyền vị trí bị từ chối vĩnh viễn. Hãy vào Cài đặt để mở lại.')),
-        );
+        LuxuryToast.show(context, message: 'Quyền vị trí bị từ chối vĩnh viễn. Hãy vào Cài đặt để mở lại.');
+
       }
       return;
     }
@@ -132,9 +130,8 @@ class _LocationPermissionScreenState extends State<LocationPermissionScreen> wit
       if (mounted) Navigator.pop(context); // Tắt loading nếu lỗi
       debugPrint("Lỗi khi lấy vị trí: $e");
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Không thể lấy vị trí hiện tại. Vui lòng thử lại sau.')),
-        );
+        LuxuryToast.show(context, message: 'Không thể lấy vị trí hiện tại. Vui lòng thử lại sau.');
+
       }
     }
   }

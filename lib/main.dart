@@ -7,6 +7,8 @@ import 'package:provider/provider.dart';
 import 'features/cart/providers/cart_provider.dart';
 import 'features/wishlist/providers/wishlist_provider.dart';
 import 'features/chat/providers/chat_provider.dart';
+import 'features/product/providers/product_provider.dart';
+import 'features/ai_scan/providers/ai_scan_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,6 +32,8 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(create: (_) => WishlistProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
+        ChangeNotifierProvider(create: (_) => ProductProvider()),
+        ChangeNotifierProvider(create: (_) => AiScanProvider()),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,

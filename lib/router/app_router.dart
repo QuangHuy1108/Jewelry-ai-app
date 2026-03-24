@@ -12,6 +12,11 @@ import '../features/cart/screens/cart_screen.dart';
 import '../features/product/screens/review_screen.dart';
 import '../features/product/screens/leave_review_screen.dart';
 import '../features/checkout/screens/checkout_screen.dart';
+import '../features/checkout/screens/order_success_screen.dart';
+import '../features/checkout/screens/add_card_screen.dart';
+import '../features/checkout/screens/e_receipt_screen.dart';
+import '../features/checkout/screens/my_orders_screen.dart';
+import '../features/checkout/screens/track_order_screen.dart';
 import '../features/chat_ai/screens/chat_screen.dart';
 import '../features/auth/screens/complete_profile_screen.dart';
 import '../features/auth/screens/welcome_screen.dart';
@@ -20,6 +25,8 @@ import '../features/onboarding/screens/location_permission_screen.dart';
 import '../features/onboarding/screens/enter_location_screen.dart';
 import '../features/camera/screens/camera_screen.dart';
 import '../features/wishlist/screens/wishlist_screen.dart';
+import '../features/search/screens/search_results_screen.dart';
+import '../features/ai_scan/screens/ai_scan_screen.dart';
 
 class AppRouter {
   static const splash = '/splash';
@@ -43,6 +50,13 @@ class AppRouter {
   static const wishlist = '/wishlist';
   static const review = '/review';
   static const leaveReview = '/leave-review';
+  static const search = '/search';
+  static const aiScan = '/ai-scan';
+  static const orderSuccess = '/order-success';
+  static const addCard = '/add-card';
+  static const eReceipt = '/e-receipt';
+  static const myOrders = '/my-orders';
+  static const trackOrder = '/track-order';
 
   static Map<String, WidgetBuilder> routes = {
     splash: (_) => const SplashScreen(),
@@ -72,5 +86,12 @@ class AppRouter {
     wishlist: (_) => const WishlistScreen(),
     review: (_) => const ProductReviewScreen(),
     leaveReview: (_) => const LeaveReviewScreen(),
+    search: (_) => const SearchResultsScreen(initialQuery: ''),
+    aiScan: (_) => const AiScanScreen(),
+    orderSuccess: (_) => const OrderSuccessScreen(),
+    addCard: (_) => const AddCardScreen(),
+    eReceipt: (_) => const EReceiptScreen(),
+    myOrders: (_) => const MyOrdersScreen(),
+    trackOrder: (_) => const TrackOrderScreen(),
   };
 }

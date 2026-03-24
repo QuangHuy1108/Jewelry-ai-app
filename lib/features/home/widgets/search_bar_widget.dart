@@ -1,3 +1,4 @@
+import 'package:jewelry_app/core/utils/luxury_toast.dart';
 import 'package:flutter/material.dart';
 
 class SearchBarWidget extends StatefulWidget {
@@ -44,13 +45,7 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
       widget.onSubmitted(text);
       FocusScope.of(context).unfocus();
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Please enter a keyword"),
-          behavior: SnackBarBehavior.floating,
-          duration: Duration(seconds: 2),
-        ),
-      );
+      LuxuryToast.show(context, message: "Please enter a keyword");
     }
   }
 

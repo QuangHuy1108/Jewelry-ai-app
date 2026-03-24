@@ -1,3 +1,4 @@
+import 'package:jewelry_app/core/utils/luxury_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
@@ -85,9 +86,8 @@ class _VerifyCodeScreenState extends State<VerifyCodeScreen> with SingleTickerPr
 
     String otp = _controllers.map((e) => e.text).join();
     if (otp.length < 4) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please enter the full 4-digit code")),
-      );
+      LuxuryToast.show(context, message: "Please enter the full 4-digit code");
+
       return;
     }
 
@@ -178,7 +178,7 @@ class _VerifyCodeScreenState extends State<VerifyCodeScreen> with SingleTickerPr
         GestureDetector(
           onTap: _canResend ? () {
             _startTimer();
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("A new code has been sent!")));
+            LuxuryToast.show(context, message: "A new code has been sent!");
           } : null,
           child: Text(
             _canResend ? "Resend code" : "Resend in ${_start}s",

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../widgets/best_seller_product_card.dart';
+import '../widgets/product_card.dart';
 import '../../../router/app_navigation.dart';
 
 class BestSellerScreen extends StatefulWidget {
@@ -153,9 +153,9 @@ class _BestSellerScreenState extends State<BestSellerScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        crossAxisSpacing: 15,
-        mainAxisSpacing: 20,
-        childAspectRatio: 0.68, // To accommodate image + 3 lines of text
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        childAspectRatio: 0.75, // Standardized ratio
       ),
       itemCount: 6,
       itemBuilder: (context, index) => const ShimmerProductCard(),
@@ -208,9 +208,9 @@ class _BestSellerScreenState extends State<BestSellerScreen> {
       ),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        crossAxisSpacing: 15,
-        mainAxisSpacing: 20,
-        childAspectRatio: 0.68,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        childAspectRatio: 0.75,
       ),
       itemCount: _products.length,
       itemBuilder: (context, index) {
@@ -240,7 +240,7 @@ class _BestSellerScreenState extends State<BestSellerScreen> {
               },
             );
           },
-          child: BestSellerProductCard(
+          child: ProductCard(
             product: product,
             onTap: () {
               AppNavigation.toProductDetail(context, product: product);
@@ -248,6 +248,20 @@ class _BestSellerScreenState extends State<BestSellerScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+class ShimmerProductCard extends StatelessWidget {
+  const ShimmerProductCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey.shade200,
+        borderRadius: BorderRadius.circular(16),
+      ),
     );
   }
 }

@@ -225,12 +225,18 @@ class _HomeHeaderState extends State<HomeHeader> {
               ),
               Row(
                 children: [
-                  _buildHeaderIcon(Icons.camera_alt_outlined, () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const CameraScannerScreen()),
-                    );
-                  }),
+                  ElevatedButton.icon(
+                    onPressed: () => Navigator.pushNamed(context, '/ai-scan'),
+                    icon: const Icon(Icons.auto_awesome, size: 16),
+                    label: const Text('AI Scan'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.black,
+                      minimumSize: const Size(0, 36),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    ),
+                  ),
                   const SizedBox(width: 12),
                   _buildHeaderIcon(Icons.notifications_none, () {}),
                 ],
