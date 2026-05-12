@@ -6,6 +6,7 @@ import 'package:jewelry_app/core/utils/luxury_toast.dart';
 import '../../cart/providers/cart_provider.dart';
 import '../../offer/screens/coupon_screen.dart';
 import '../models/order_model.dart';
+import '../providers/payment_provider.dart';
 import '../../../router/app_router.dart';
 
 class CheckoutScreen extends StatefulWidget {
@@ -41,6 +42,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     {'id': 'apple', 'label': 'Apple Pay', 'icon': Icons.apple},
     {'id': 'cod', 'label': 'Cash on Delivery', 'icon': Icons.money},
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<PaymentProvider>().loadSavedPayment();
+    });
+  }
 
   // Voucher
   Map<String, dynamic>? _orderVoucher;
@@ -196,46 +205,95 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   // ===== PAYMENT METHOD =====
   Widget _buildPaymentSection() {
-    return _sectionCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
+    return Consumer<PaymentProvider>(
+      builder: (context, payment, _) {
+        return _sectionCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.payment_outlined, size: 18, color: Color(0xFFD4AF37)),
-              SizedBox(width: 8),
-              Text('Payment Method', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF333333))),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: _paymentOptions.map((opt) {
-              final isSelected = _selectedPayment == opt['id'];
-              return Expanded(
-                child: GestureDetector(
-                  onTap: () => setState(() => _selectedPayment = opt['id']),
-                  child: Container(
-                    margin: EdgeInsets.only(right: opt != _paymentOptions.last ? 8 : 0),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    decoration: BoxDecoration(
-                      color: isSelected ? const Color(0xFFFBF7EE) : Colors.white,
-                      border: Border.all(color: isSelected ? const Color(0xFFD4AF37) : const Color(0xFFEEEEEE)),
-                      borderRadius: BorderRadius.circular(12),
+              const Row(
+                children: [
+                  Icon(Icons.payment_outlined, size: 18, color: Color(0xFFD4AF37)),
+                  SizedBox(width: 8),
+                  Text('Payment Method', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF333333))),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: _paymentOptions.map((opt) {
+                  final isSelected = _selectedPayment == opt['id'];
+                  return Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _selectedPayment = opt['id']),
+                      child: Container(
+                        margin: EdgeInsets.only(right: opt != _paymentOptions.last ? 8 : 0),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          color: isSelected ? const Color(0xFFFBF7EE) : Colors.white,
+                          border: Border.all(color: isSelected ? const Color(0xFFD4AF37) : const Color(0xFFEEEEEE)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(opt['icon'] as IconData, size: 22, color: isSelected ? const Color(0xFFD4AF37) : const Color(0xFF999999)),
+                            const SizedBox(height: 6),
+                            Text(opt['label'] as String, textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isSelected ? const Color(0xFF333333) : const Color(0xFF999999))),
+                          ],
+                        ),
+                      ),
                     ),
-                    child: Column(
+                  );
+                }).toList(),
+              ),
+              if (_selectedPayment == 'card') ...[
+                const SizedBox(height: 12),
+                if (payment.hasCard)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF5F5F5),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
                       children: [
-                        Icon(opt['icon'] as IconData, size: 22, color: isSelected ? const Color(0xFFD4AF37) : const Color(0xFF999999)),
-                        const SizedBox(height: 6),
-                        Text(opt['label'] as String, textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isSelected ? const Color(0xFF333333) : const Color(0xFF999999))),
+                        Icon(Icons.credit_card, size: 20, color: Colors.blue.shade900),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(payment.cardTypeLabel, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                              Text(payment.savedCard!['maskedNumber'], style: const TextStyle(fontSize: 12, color: Color(0xFF777777))),
+                            ],
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () => Navigator.pushNamed(context, AppRouter.addCard),
+                          child: const Text('Change', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFD4AF37))),
+                        ),
                       ],
                     ),
+                  )
+                else
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () => Navigator.pushNamed(context, AppRouter.addCard),
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Add Credit Card'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF333333),
+                        side: const BorderSide(color: Color(0xFFEEEEEE)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
                   ),
-                ),
-              );
-            }).toList(),
+              ],
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -450,6 +508,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       return;
     }
 
+    final payment = context.read<PaymentProvider>();
+    if (_selectedPayment == 'card' && !payment.hasCard) {
+      LuxuryToast.show(context, message: 'Please add a credit card first');
+      Navigator.pushNamed(context, AppRouter.addCard);
+      return;
+    }
+
     // Auth check
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -458,6 +523,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         Navigator.pushNamed(context, AppRouter.signin);
       }
       return;
+    }
+
+    // PIN Verification for Card
+    if (_selectedPayment == 'card') {
+      final verified = await _showPinVerification(context);
+      if (verified != true) return;
     }
 
     setState(() => _isLoading = true);
@@ -515,6 +586,85 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<bool?> _showPinVerification(BuildContext context) async {
+    final controllers = List.generate(6, (_) => TextEditingController());
+    final focusNodes = List.generate(6, (_) => FocusNode());
+
+    return showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 12),
+              Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+              const SizedBox(height: 24),
+              const Text('Enter Your PIN', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF333333))),
+              const SizedBox(height: 8),
+              const Text('Provide your 6-digit secure PIN to authorize payment', style: TextStyle(fontSize: 13, color: Color(0xFF999999))),
+              const SizedBox(height: 32),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(6, (i) {
+                  return Container(
+                    width: 40,
+                    height: 50,
+                    margin: const EdgeInsets.symmetric(horizontal: 5),
+                    child: TextField(
+                      controller: controllers[i],
+                      focusNode: focusNodes[i],
+                      keyboardType: TextInputType.number,
+                      textAlign: TextAlign.center,
+                      obscureText: true,
+                      maxLength: 1,
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      decoration: InputDecoration(
+                        counterText: '',
+                        filled: true,
+                        fillColor: const Color(0xFFF5F5F5),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFFD4AF37), width: 1.5)),
+                      ),
+                      onChanged: (value) {
+                        if (value.isNotEmpty && i < 5) {
+                          focusNodes[i + 1].requestFocus();
+                        } else if (value.isEmpty && i > 0) {
+                          focusNodes[i - 1].requestFocus();
+                        }
+                        if (controllers.every((c) => c.text.isNotEmpty)) {
+                          final pin = controllers.map((c) => c.text).join();
+                          final payment = context.read<PaymentProvider>();
+                          if (payment.verifyPin(pin)) {
+                            Navigator.pop(context, true);
+                          } else {
+                            LuxuryToast.show(context, message: 'Invalid PIN. Please try again.');
+                            for (var c in controllers) {
+                              c.clear();
+                            }
+                            focusNodes[0].requestFocus();
+                          }
+                        }
+                      },
+                    ),
+                  );
+                }),
+              ),
+              const SizedBox(height: 40),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   // ===== REUSABLE SECTION CARD =====

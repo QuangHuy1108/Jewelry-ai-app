@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:jewelry_app/services/product_service.dart';
 import '../../product/screens/popular_products_screen.dart';
 import '../../product/widgets/product_card.dart';
 
@@ -7,20 +9,6 @@ class PopularProductsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final products = [
-      {
-        "name": "Classic Gold Hoops",
-        "category": "Earrings",
-        "price": "\$250",
-        "image": "https://i.postimg.cc/cHWq3842/h8.jpg",
-      },
-      {
-        "name": "Silver Chain Bracelet",
-        "category": "Bracelets",
-        "price": "\$120",
-        "image": "https://i.postimg.cc/zv06gtVy/h9.jpg",
-      },
-    ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -55,24 +43,38 @@ class PopularProductsSection extends StatelessWidget {
         ),
         SizedBox(
           height: 250,
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            scrollDirection: Axis.horizontal,
-            itemCount: products.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 16),
-            itemBuilder: (context, index) {
-              final Map<String, dynamic> p = {
-                "id": "pop_${index}",
-                "name": products[index]["name"],
-                "price": products[index]["price"]?.replaceAll('\$', ''),
-                "image": products[index]["image"],
-              };
-              
-              return SizedBox(
-                width: 160,
-                child: ProductCard(product: p),
+          child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: ProductService().getPopularProductsStream(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator(color: Color(0xFF333333)));
+              }
+              final docs = snapshot.data?.docs ?? [];
+              if (docs.isEmpty) {
+                return const Center(child: Text("No popular products found", style: TextStyle(color: Color(0xFF999999))));
+              }
+              return ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                scrollDirection: Axis.horizontal,
+                itemCount: docs.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 16),
+                itemBuilder: (context, index) {
+                  final doc = docs[index];
+                  final data = doc.data();
+                  final Map<String, dynamic> p = {
+                    "id": doc.id,
+                    "name": data['name'] ?? '',
+                    "price": "${data['price']}", // ProductCard typically prefixes $ for popular
+                    "image": data['image'] ?? '',
+                  };
+                  
+                  return SizedBox(
+                    width: 160,
+                    child: ProductCard(product: p),
+                  );
+                },
               );
-            },
+            }
           ),
         ),
       ],

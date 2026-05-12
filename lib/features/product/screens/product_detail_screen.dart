@@ -257,6 +257,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _buildSellerSection(),
+            const SizedBox(height: 24),
             _buildPrimaryInfo(),
             const SizedBox(height: 24),
             _buildDynamicAttributes(),
@@ -404,6 +406,102 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildSellerSection() {
+    final product = context.read<ProductProvider>().product;
+    final sellers = product['sellers'] as List<dynamic>?;
+    if (sellers == null || sellers.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Consultants', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF333333))),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 80,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: sellers.length,
+            itemBuilder: (context, index) {
+              final seller = sellers[index];
+              return Container(
+                width: MediaQuery.of(context).size.width * 0.7,
+                margin: const EdgeInsets.only(right: 12),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFEFEFEF)),
+                ),
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () => Navigator.pushNamed(context, '/seller-profile', arguments: seller),
+                      child: CircleAvatar(
+                        radius: 24,
+                        backgroundImage: NetworkImage(seller['avatar']),
+                        backgroundColor: Colors.grey.shade200,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => Navigator.pushNamed(context, '/seller-profile', arguments: seller),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              seller['name'],
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF333333)),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Row(
+                              children: [
+                                const Icon(Icons.star, color: Color(0xFFFFD700), size: 12),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${seller['rating']} Rating',
+                                  style: const TextStyle(fontSize: 12, color: Color(0xFF999999)),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.chat_bubble_outline, color: Color(0xFF333333), size: 20),
+                      onPressed: () {
+                        final productContext = {
+                          'id': product['id'] ?? '',
+                          'name': product['name'] ?? '',
+                          'image': (product['images'] as List<dynamic>?)?.firstWhere(
+                            (u) => !u.toString().endsWith('.mp4'), orElse: () => '') ?? '',
+                          'price': product['basePrice'],
+                        };
+                        Navigator.pushNamed(
+                          context,
+                          '/chat-detail',
+                          arguments: {
+                            'sellerId': seller['id'] ?? '',
+                            'sellerName': seller['name'] ?? 'Seller',
+                            'sellerAvatar': seller['avatar'] ?? '',
+                            'productContext': productContext,
+                          },
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

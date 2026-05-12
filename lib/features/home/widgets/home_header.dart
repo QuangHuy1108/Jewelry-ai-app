@@ -5,7 +5,9 @@ import '../../filter/widgets/quick_filter_bottom_sheet.dart';
 import '../../../../core/state/filter_state.dart';
 import 'search_bar_widget.dart';
 import 'suggestion_dropdown.dart';
-import '../../camera/screens/camera_screen.dart';
+import '../../../router/app_router.dart';
+import 'package:provider/provider.dart';
+import '../../notification/providers/notification_provider.dart';
 
 class HomeHeader extends StatefulWidget {
   const HomeHeader({super.key});
@@ -238,7 +240,7 @@ class _HomeHeaderState extends State<HomeHeader> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  _buildHeaderIcon(Icons.notifications_none, () {}),
+                  _buildHeaderIcon(Icons.notifications_none, () => Navigator.pushNamed(context, AppRouter.notification)),
                 ],
               ),
             ],
@@ -289,10 +291,35 @@ class _HomeHeaderState extends State<HomeHeader> {
   Widget _buildHeaderIcon(IconData icon, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
-      child: Icon(
-        icon,
-        color: Colors.white,
-        size: 28,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Icon(
+            icon,
+            color: Colors.white,
+            size: 28,
+          ),
+          Consumer<NotificationProvider>(
+            builder: (context, provider, child) {
+              if (provider.unreadCount == 0) return const SizedBox.shrink();
+              return Positioned(
+                right: -4,
+                top: -4,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFE53935), // Red badge
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    '${provider.unreadCount}',
+                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }

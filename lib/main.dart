@@ -7,8 +7,11 @@ import 'package:provider/provider.dart';
 import 'features/cart/providers/cart_provider.dart';
 import 'features/wishlist/providers/wishlist_provider.dart';
 import 'features/chat/providers/chat_provider.dart';
+import 'features/notification/providers/notification_provider.dart';
 import 'features/product/providers/product_provider.dart';
 import 'features/ai_scan/providers/ai_scan_provider.dart';
+import 'features/checkout/providers/payment_provider.dart';
+import 'services/push_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,6 +22,12 @@ void main() async {
   // Initialize GoogleSignIn (required in version 7.0+)
   await GoogleSignIn.instance.initialize();
   
+  try {
+    await PushNotificationService().initialize();
+  } catch (e) {
+    debugPrint("Failed to initialize push notifications: $e");
+  }
+
   runApp(const MyApp());
 }
 
@@ -31,11 +40,15 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(create: (_) => WishlistProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => ChatProvider()),
         ChangeNotifierProvider(create: (_) => ProductProvider()),
         ChangeNotifierProvider(create: (_) => AiScanProvider()),
+        ChangeNotifierProvider(create: (_) => PaymentProvider()),
       ],
       child: MaterialApp(
+        navigatorKey: AppRouter.navigatorKey,
+        scaffoldMessengerKey: AppRouter.scaffoldMessengerKey,
         debugShowCheckedModeBanner: false,
         initialRoute: AppRouter.splash,
         routes: AppRouter.routes,

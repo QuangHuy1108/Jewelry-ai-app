@@ -15,6 +15,10 @@ class BottomNav extends StatelessWidget {
       selectedIndex = 1;
     } else if (currentRoute == '/cart') {
       selectedIndex = 2;
+    } else if (currentRoute == '/chat-list') {
+      selectedIndex = 3;
+    } else if (currentRoute == '/user-profile') {
+      selectedIndex = 4;
     }
 
     return BottomNavigationBar(
@@ -34,6 +38,12 @@ class BottomNav extends StatelessWidget {
             break;
           case 2:
             Navigator.pushNamed(context, '/cart');
+            break;
+          case 3:
+            Navigator.pushNamed(context, '/chat-list');
+            break;
+          case 4:
+            Navigator.pushNamed(context, '/user-profile');
             break;
         }
       },

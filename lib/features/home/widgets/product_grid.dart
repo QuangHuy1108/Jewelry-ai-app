@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:jewelry_app/services/product_service.dart';
 import '../../product/widgets/product_card.dart';
 import '../../product/screens/best_seller_screen.dart';
 
@@ -7,32 +9,6 @@ class ProductGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final products = [
-      {
-        "id": "pg1",
-        "name": "Gold Ring",
-        "price": "\$1200",
-        "image": "https://i.postimg.cc/cHWq3842/h8.jpg",
-      },
-      {
-        "id": "pg2",
-        "name": "Diamond Ring",
-        "price": "\$2500",
-        "image": "https://i.postimg.cc/4yh339Lk/h7.jpg",
-      },
-      {
-        "id": "pg3",
-        "name": "Silver Bracelet",
-        "price": "\$450",
-        "image": "https://i.postimg.cc/zv06gtVy/h9.jpg",
-      },
-      {
-        "id": "pg4",
-        "name": "Pearl Necklace",
-        "price": "\$890",
-        "image": "https://i.postimg.cc/pL94mBxp/h10.jpg",
-      },
-    ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -68,22 +44,39 @@ class ProductGrid extends StatelessWidget {
         ),
         Padding(
           padding: const EdgeInsets.all(12),
-          child: GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: products.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 0.75,
-              crossAxisSpacing: 8,
-              mainAxisSpacing: 8,
-            ),
-            itemBuilder: (context, index) {
-              final p = products[index];
-              return ProductCard(
-                product: p,
+          child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: ProductService().getBestSellersStream(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator(color: Color(0xFF333333)));
+              }
+              final docs = snapshot.data?.docs ?? [];
+              if (docs.isEmpty) {
+                return const Center(child: Padding(padding: EdgeInsets.all(32), child: Text("No products found", style: TextStyle(color: Color(0xFF999999)))));
+              }
+              return GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: docs.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: 0.75,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                ),
+                itemBuilder: (context, index) {
+                  final doc = docs[index];
+                  final data = doc.data();
+                  final p = {
+                    "id": doc.id,
+                    "name": data['name'] ?? '',
+                    "price": "\$${data['price']}",
+                    "image": data['image'] ?? '',
+                  };
+                  return ProductCard(product: p);
+                },
               );
-            },
+            }
           ),
         ),
       ],

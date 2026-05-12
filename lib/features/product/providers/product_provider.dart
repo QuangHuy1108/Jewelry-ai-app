@@ -17,6 +17,20 @@ class ProductProvider extends ChangeNotifier {
     "stock": 10,
     "rating": 4.8,
     "reviews": 124,
+    "sellers": [
+      {
+        "id": "s1",
+        "name": "Jenny Doe",
+        "avatar": "https://i.pravatar.cc/150?u=jenny",
+        "rating": 4.9,
+      },
+      {
+        "id": "s2",
+        "name": "Marcus Stone",
+        "avatar": "https://i.pravatar.cc/150?u=marcus",
+        "rating": 4.7,
+      }
+    ],
   };
 
   String _selectedMaterial = 'Gold';
@@ -36,6 +50,23 @@ class ProductProvider extends ChangeNotifier {
 
   void initProduct(Map<String, dynamic> p) {
     _product = p;
+    // Ensure sellers array is present for demo
+    if (!_product.containsKey('sellers')) {
+      _product['sellers'] = [
+        {
+          "id": "s1",
+          "name": "Jenny Doe",
+          "avatar": "https://i.pravatar.cc/150?u=jenny",
+          "rating": 4.9,
+        },
+        {
+          "id": "s2",
+          "name": "Marcus Stone",
+          "avatar": "https://i.pravatar.cc/150?u=marcus",
+          "rating": 4.7,
+        }
+      ];
+    }
     _qty = 1;
     _selectedSize = '';
     _selectedVoucher = null;

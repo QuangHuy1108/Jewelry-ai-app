@@ -1,7 +1,52 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class CartProvider extends ChangeNotifier {
   final List<Map<String, dynamic>> _items = [];
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  CartProvider() {
+    _fetchCart();
+  }
+
+  Future<void> _fetchCart() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    
+    final snap = await _firestore.collection('users').doc(user.uid).collection('cart').get();
+    _items.clear();
+    for (var doc in snap.docs) {
+      final data = doc.data();
+      data['docId'] = doc.id;
+      _items.add(data);
+    }
+    notifyListeners();
+  }
+
+  Future<void> _syncItemToFirestore(Map<String, dynamic> item) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    
+    final collection = _firestore.collection('users').doc(user.uid).collection('cart');
+    
+    if (item.containsKey('docId') && item['docId'] != null) {
+      final docId = item['docId'];
+      final dataToSave = Map<String, dynamic>.from(item)..remove('docId');
+      await collection.doc(docId).set(dataToSave, SetOptions(merge: true));
+    } else {
+      final dataToSave = Map<String, dynamic>.from(item)..remove('docId');
+      final docRef = await collection.add(dataToSave);
+      item['docId'] = docRef.id;
+    }
+  }
+
+  Future<void> _removeItemFromFirestore(String docId) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    await _firestore.collection('users').doc(user.uid).collection('cart').doc(docId).delete();
+  }
 
   List<Map<String, dynamic>> get items => _items;
 
@@ -33,9 +78,10 @@ class CartProvider extends ChangeNotifier {
       int newQty = (_items[existingIndex]['qty'] ?? 1) + qty;
       int stock = product['stock'] ?? 99;
       _items[existingIndex]['qty'] = newQty > stock ? stock : newQty;
+      _syncItemToFirestore(_items[existingIndex]);
     } else {
       final itemPrice = product['price'] ?? product['basePrice'] ?? 0.0;
-      _items.add({
+      final newItem = {
         'id': product['id'],
         'name': product['name'] ?? 'Unknown Item',
         'price': itemPrice,
@@ -46,7 +92,9 @@ class CartProvider extends ChangeNotifier {
         'stock': product['stock'] ?? 99,
         'isSelected': true,
         'selectedOptions': options,
-      });
+      };
+      _items.add(newItem);
+      _syncItemToFirestore(newItem);
     }
     notifyListeners();
   }
@@ -54,11 +102,13 @@ class CartProvider extends ChangeNotifier {
   void toggleItemSelection(int index) {
     _items[index]['isSelected'] = !(_items[index]['isSelected'] ?? false);
     notifyListeners();
+    _syncItemToFirestore(_items[index]);
   }
 
   void toggleAllSelection(bool select) {
     for (var item in _items) {
       item['isSelected'] = select;
+      _syncItemToFirestore(item);
     }
     notifyListeners();
   }
@@ -69,6 +119,7 @@ class CartProvider extends ChangeNotifier {
       _items[index]['price'] = specificPriceUpdate;
     }
     notifyListeners();
+    _syncItemToFirestore(_items[index]);
   }
 
   void applyVoucher(int index, Map<String, dynamic> voucher) {
@@ -97,19 +148,26 @@ class CartProvider extends ChangeNotifier {
     }
     
     notifyListeners();
+    _syncItemToFirestore(_items[index]);
   }
 
   List<Map<String, dynamic>> get selectedItems =>
       _items.where((item) => item['isSelected'] == true).toList();
 
   void removeSelectedItems() {
+    final toRemove = _items.where((item) => item['isSelected'] == true).toList();
     _items.removeWhere((item) => item['isSelected'] == true);
     notifyListeners();
+    for (var item in toRemove) {
+      if (item['docId'] != null) _removeItemFromFirestore(item['docId']);
+    }
   }
 
   void removeItem(int index) {
+    final docId = _items[index]['docId'];
     _items.removeAt(index);
     notifyListeners();
+    if (docId != null) _removeItemFromFirestore(docId);
   }
   
   void updateQty(int index, int newQty) {
@@ -119,6 +177,7 @@ class CartProvider extends ChangeNotifier {
     } else {
       _items[index]['qty'] = newQty > stock ? stock : newQty;
       notifyListeners();
+      _syncItemToFirestore(_items[index]);
     }
   }
 

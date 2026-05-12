@@ -17,7 +17,11 @@ import '../features/checkout/screens/add_card_screen.dart';
 import '../features/checkout/screens/e_receipt_screen.dart';
 import '../features/checkout/screens/my_orders_screen.dart';
 import '../features/checkout/screens/track_order_screen.dart';
+import '../features/notification/screens/notification_screen.dart';
 import '../features/chat_ai/screens/chat_screen.dart';
+import '../features/chat/screens/chat_list_screen.dart';
+import '../features/chat/screens/chat_detail_screen.dart';
+import '../features/product/screens/seller_profile_screen.dart';
 import '../features/auth/screens/complete_profile_screen.dart';
 import '../features/auth/screens/welcome_screen.dart';
 import '../features/onboarding/screens/enable_notification.dart';
@@ -27,8 +31,24 @@ import '../features/camera/screens/camera_screen.dart';
 import '../features/wishlist/screens/wishlist_screen.dart';
 import '../features/search/screens/search_results_screen.dart';
 import '../features/ai_scan/screens/ai_scan_screen.dart';
+import '../features/profile/screens/user_profile_screen.dart';
+import '../features/profile/screens/edit_profile_screen.dart';
+import '../features/profile/screens/manage_address_screen.dart';
+import '../features/profile/screens/payment_methods_screen.dart';
+import '../features/profile/screens/wallet_screen.dart';
+import '../features/profile/screens/add_address_screen.dart';
+import '../features/profile/screens/top_up_wallet_screen.dart';
+import '../features/profile/screens/settings_screen.dart';
+import '../features/profile/screens/password_manager_screen.dart';
+import '../features/profile/screens/notification_settings_screen.dart';
+import '../features/profile/screens/delete_account_screen.dart';
+import '../features/profile/screens/help_center_screen.dart';
+import '../features/profile/screens/privacy_policy_screen.dart';
 
 class AppRouter {
+  static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+  static final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+
   static const splash = '/splash';
   static const onboarding = '/onboarding';
   static const signup = '/signup';
@@ -57,6 +77,23 @@ class AppRouter {
   static const eReceipt = '/e-receipt';
   static const myOrders = '/my-orders';
   static const trackOrder = '/track-order';
+  static const notification = '/notification';
+  static const chatList = '/chat-list';
+  static const chatDetail = '/chat-detail';
+  static const sellerProfile = '/seller-profile';
+  static const userProfile = '/user-profile';
+  static const editProfile = '/edit-profile';
+  static const manageAddress = '/manage-address';
+  static const paymentMethods = '/payment-methods';
+  static const wallet = '/wallet';
+  static const addAddress = '/add-address';
+  static const topUpWallet = '/top-up-wallet';
+  static const settings = '/settings';
+  static const passwordManager = '/password-manager';
+  static const notificationSettings = '/notification-settings';
+  static const deleteAccount = '/delete-account';
+  static const helpCenter = '/help-center';
+  static const privacyPolicy = '/privacy-policy';
 
   static Map<String, WidgetBuilder> routes = {
     splash: (_) => const SplashScreen(),
@@ -93,5 +130,22 @@ class AppRouter {
     eReceipt: (_) => const EReceiptScreen(),
     myOrders: (_) => const MyOrdersScreen(),
     trackOrder: (_) => const TrackOrderScreen(),
+    notification: (_) => const NotificationScreen(),
+    chatList: (_) => const ChatListScreen(),
+    chatDetail: (_) => const ChatDetailScreen(),
+    sellerProfile: (_) => const SellerProfileScreen(),
+    userProfile: (_) => const UserProfileScreen(),
+    editProfile: (_) => const EditProfileScreen(),
+    manageAddress: (_) => ManageAddressScreen(),
+    paymentMethods: (_) => const PaymentMethodsScreen(),
+    wallet: (_) => WalletScreen(),
+    addAddress: (_) => const AddAddressScreen(),
+    topUpWallet: (_) => const TopUpWalletScreen(),
+    settings: (_) => const SettingsScreen(),
+    passwordManager: (_) => const PasswordManagerScreen(),
+    notificationSettings: (_) => const NotificationSettingsScreen(),
+    deleteAccount: (_) => const DeleteAccountScreen(),
+    helpCenter: (_) => const HelpCenterScreen(),
+    privacyPolicy: (_) => const PrivacyPolicyScreen(),
   };
 }

@@ -5,9 +5,21 @@ import '../widgets/category_list.dart';
 import '../widgets/product_grid.dart';
 import 'package:jewelry_app/features/home/widgets/bottom_nav.dart';
 import '../widgets/popular_products_section.dart';
+import 'package:jewelry_app/services/product_service.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    ProductService().seedProducts();
+  }
 
   @override
   Widget build(BuildContext context) {
