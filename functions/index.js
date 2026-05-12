@@ -19,3 +19,7 @@ const adminFunctions = require('./adminFunctions');
 exports.setAdminRole = adminFunctions.setAdminRole;
 exports.removeAdminRole = adminFunctions.removeAdminRole;
 exports.getDashboardStats = adminFunctions.getDashboardStats;
+
+// ── Payment Webhooks ──
+const paymentFunctions = require('./paymentFunctions');
+exports.paymentWebhook = paymentFunctions.paymentWebhook;

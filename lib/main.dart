@@ -12,6 +12,7 @@ import 'features/product/providers/product_provider.dart';
 import 'features/ai_scan/providers/ai_scan_provider.dart';
 import 'features/checkout/providers/payment_provider.dart';
 import 'services/push_notification_service.dart';
+import 'services/connectivity_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,6 +28,9 @@ void main() async {
   } catch (e) {
     debugPrint("Failed to initialize push notifications: $e");
   }
+
+  // Start network monitoring
+  ConnectivityService().startMonitoring();
 
   runApp(const MyApp());
 }
@@ -46,12 +50,14 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AiScanProvider()),
         ChangeNotifierProvider(create: (_) => PaymentProvider()),
       ],
-      child: MaterialApp(
-        navigatorKey: AppRouter.navigatorKey,
-        scaffoldMessengerKey: AppRouter.scaffoldMessengerKey,
-        debugShowCheckedModeBanner: false,
-        initialRoute: AppRouter.splash,
-        routes: AppRouter.routes,
+      child: ConnectivityWrapper(
+        child: MaterialApp(
+          navigatorKey: AppRouter.navigatorKey,
+          scaffoldMessengerKey: AppRouter.scaffoldMessengerKey,
+          debugShowCheckedModeBanner: false,
+          initialRoute: AppRouter.splash,
+          routes: AppRouter.routes,
+        ),
       ),
     );
   }
