@@ -117,7 +117,7 @@ class _BestSellerScreenState extends State<BestSellerScreen> {
             ),
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: _loadBestSellers,
+              onPressed: () => Navigator.pop(context),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF333333),
                 foregroundColor: Colors.white,
