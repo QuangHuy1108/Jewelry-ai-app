@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:jewelry_app/services/product_service.dart';
 import '../widgets/product_card.dart';
 import '../../../router/app_navigation.dart';
 
@@ -10,78 +12,6 @@ class BestSellerScreen extends StatefulWidget {
 }
 
 class _BestSellerScreenState extends State<BestSellerScreen> {
-  bool _isLoading = true;
-  List<Map<String, dynamic>> _products = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _loadBestSellers();
-  }
-
-  Future<void> _loadBestSellers() async {
-    setState(() => _isLoading = true);
-    // Simulate API fetch delay
-    await Future.delayed(const Duration(milliseconds: 1500));
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-        _products = [
-          {
-            "id": "bs1",
-            "name": "Diamond Halo Ring",
-            "category": "Rings",
-            "price": 2500,
-            "originalPrice": 3200,
-            "rating": 4.9,
-            "image": "https://i.postimg.cc/4yh339Lk/h7.jpg",
-          },
-          {
-            "id": "bs2",
-            "name": "Gold Tennis Bracelet",
-            "category": "Bracelets",
-            "price": 1200,
-            "rating": 4.8,
-            "image": "https://i.postimg.cc/zv06gtVy/h9.jpg",
-          },
-          {
-            "id": "bs3",
-            "name": "Pearl Drop Earrings",
-            "category": "Earrings",
-            "price": 850,
-            "originalPrice": 1100,
-            "rating": 4.7,
-            "image": "https://i.postimg.cc/cHWq3842/h8.jpg",
-          },
-          {
-            "id": "bs4",
-            "name": "Sapphire Pendant",
-            "category": "Necklaces",
-            "price": 3100,
-            "rating": 5.0,
-            "image": "https://i.postimg.cc/pL94mBxp/h10.jpg",
-          },
-          {
-            "id": "bs5",
-            "name": "Rose Gold Bangle",
-            "category": "Bracelets",
-            "price": 450,
-            "originalPrice": 600,
-            "rating": 4.6,
-            "image": "https://i.postimg.cc/zv06gtVy/h9.jpg",
-          },
-          {
-            "id": "bs6",
-            "name": "Emerald Cut Ring",
-            "category": "Rings",
-            "price": 4200,
-            "rating": 4.9,
-            "image": "https://i.postimg.cc/4yh339Lk/h7.jpg",
-          },
-        ];
-      });
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -93,11 +23,17 @@ class _BestSellerScreenState extends State<BestSellerScreen> {
           children: [
             _buildHeader(context),
             Expanded(
-              child: _isLoading
-                  ? _buildLoadingGrid()
-                  : _products.isEmpty
-                      ? _buildEmptyState()
-                      : _buildProductGrid(),
+              child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                stream: ProductService().getBestSellersStream(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return _buildLoadingGrid();
+                  }
+                  final docs = snapshot.data?.docs ?? [];
+                  if (docs.isEmpty) return _buildEmptyState();
+                  return _buildProductGrid(docs);
+                },
+              ),
             ),
           ],
         ),
@@ -196,7 +132,7 @@ class _BestSellerScreenState extends State<BestSellerScreen> {
     );
   }
 
-  Widget _buildProductGrid() {
+  Widget _buildProductGrid(List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) {
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
     
     return GridView.builder(
@@ -212,16 +148,24 @@ class _BestSellerScreenState extends State<BestSellerScreen> {
         mainAxisSpacing: 16,
         childAspectRatio: 0.75,
       ),
-      itemCount: _products.length,
+      itemCount: docs.length,
       itemBuilder: (context, index) {
-        final product = _products[index];
+        final doc = docs[index];
+        final data = doc.data();
+        final product = {
+          'id': doc.id,
+          'name': data['name'] ?? '',
+          'category': data['category'] ?? '',
+          'price': data['discountPrice'] ?? data['price'] ?? 0,
+          'originalPrice': data['price'] ?? 0,
+          'rating': data['rating'] ?? 0.0,
+          'image': data['image'] ?? '',
+        };
         
-        // Entrance: Fade-in staggered animation for grid items (Duration: 400ms)
         return TweenAnimationBuilder<double>(
           tween: Tween<double>(begin: 0.0, end: 1.0),
           duration: const Duration(milliseconds: 400),
           curve: Curves.easeOut,
-          // Calculate delay based on index for staggering
           builder: (context, value, child) {
             final staggerDelay = index * 50; 
             return FutureBuilder(

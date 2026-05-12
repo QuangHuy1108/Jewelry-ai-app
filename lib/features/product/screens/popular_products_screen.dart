@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shimmer/shimmer.dart';
+import 'package:jewelry_app/services/product_service.dart';
 import '../widgets/product_card.dart';
 import '../../../router/app_navigation.dart';
 
@@ -11,78 +13,6 @@ class PopularProductsScreen extends StatefulWidget {
 }
 
 class _PopularProductsScreenState extends State<PopularProductsScreen> {
-  bool _isLoading = true;
-  List<Map<String, dynamic>> _products = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _loadPopularProducts();
-  }
-
-  Future<void> _loadPopularProducts() async {
-    setState(() => _isLoading = true);
-    // Simulate API fetch delay
-    await Future.delayed(const Duration(milliseconds: 1500));
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-        _products = [
-          {
-            "id": "1",
-            "name": "Classic Gold Hoops",
-            "category": "Earrings",
-            "price": 250,
-            "originalPrice": 300,
-            "rating": 4.8,
-            "image": "https://i.postimg.cc/cHWq3842/h8.jpg",
-          },
-          {
-            "id": "2",
-            "name": "Silver Chain Bracelet",
-            "category": "Bracelets",
-            "price": 120,
-            "rating": 4.5,
-            "image": "https://i.postimg.cc/zv06gtVy/h9.jpg",
-          },
-          {
-            "id": "3",
-            "name": "Diamond Solitaire Ring",
-            "category": "Rings",
-            "price": 1500,
-            "originalPrice": 1800,
-            "rating": 4.9,
-            "image": "https://i.postimg.cc/4yh339Lk/h7.jpg",
-          },
-          {
-            "id": "4",
-            "name": "Crystal Heart Necklace",
-            "category": "Necklaces",
-            "price": 85,
-            "rating": 4.7,
-            "image": "https://i.postimg.cc/pL94mBxp/h10.jpg",
-          },
-          {
-            "id": "5",
-            "name": "Rose Gold Studs",
-            "category": "Earrings",
-            "price": 180,
-            "originalPrice": 220,
-            "rating": 4.6,
-            "image": "https://i.postimg.cc/cHWq3842/h8.jpg",
-          },
-          {
-            "id": "6",
-            "name": "Bangle with Charms",
-            "category": "Bracelets",
-            "price": 320,
-            "rating": 4.8,
-            "image": "https://i.postimg.cc/zv06gtVy/h9.jpg",
-          },
-        ];
-      });
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -94,11 +24,17 @@ class _PopularProductsScreenState extends State<PopularProductsScreen> {
           children: [
             _buildHeader(context),
             Expanded(
-              child: _isLoading
-                  ? _buildLoadingList()
-                  : _products.isEmpty
-                      ? _buildEmptyState()
-                      : _buildPopularList(),
+              child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                stream: ProductService().getPopularProductsStream(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return _buildLoadingList();
+                  }
+                  final docs = snapshot.data?.docs ?? [];
+                  if (docs.isEmpty) return _buildEmptyState();
+                  return _buildPopularList(docs);
+                },
+              ),
             ),
           ],
         ),
@@ -204,7 +140,7 @@ class _PopularProductsScreenState extends State<PopularProductsScreen> {
     );
   }
 
-  Widget _buildPopularList() {
+  Widget _buildPopularList(List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) {
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
     
     return GridView.builder(
@@ -220,9 +156,19 @@ class _PopularProductsScreenState extends State<PopularProductsScreen> {
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
       ),
-      itemCount: _products.length,
+      itemCount: docs.length,
       itemBuilder: (context, index) {
-        final product = _products[index];
+        final doc = docs[index];
+        final data = doc.data();
+        final product = {
+          'id': doc.id,
+          'name': data['name'] ?? '',
+          'category': data['category'] ?? '',
+          'price': data['discountPrice'] ?? data['price'] ?? 0,
+          'originalPrice': data['price'] ?? 0,
+          'rating': data['rating'] ?? 0.0,
+          'image': data['image'] ?? '',
+        };
         return ProductCard(
           product: product,
           onTap: () {

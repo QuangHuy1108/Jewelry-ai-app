@@ -1,0 +1,205 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ═══════════════════════════════════════════════════════════════
+    // HELPER FUNCTIONS
+    // ═══════════════════════════════════════════════════════════════
+
+    // Check if the request comes from an authenticated user.
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Check if the authenticated user is the document owner.
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Check if the user has an admin custom claim.
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.admin == true;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // USERS
+    // Owner can read/write their own profile.
+    // Other authenticated users can only read basic public fields
+    // (enforced at the application layer since Firestore rules are
+    // document-level, not field-level).
+    // ═══════════════════════════════════════════════════════════════
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if false; // Users cannot delete their own account doc directly
+
+      // ── Orders (user-level copy) ──
+      match /orders/{orderId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId);
+        allow update: if isOwner(userId);
+        allow delete: if false;
+      }
+
+      // ── Addresses ──
+      match /addresses/{addressId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // ── Cart ──
+      match /cart/{cartItemId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // ── Wishlist / Favorites ──
+      match /wishlist/{wishlistItemId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // ── Payment Methods (SENSITIVE — owner only, no exceptions) ──
+      match /payment_methods/{paymentId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId);
+        allow update: if isOwner(userId);
+        allow delete: if isOwner(userId);
+      }
+
+      // ── Wallet Transactions ──
+      match /transactions/{txId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId);
+        allow update: if false; // Transactions are immutable once created
+        allow delete: if false; // Cannot delete financial records
+      }
+
+      // ── Notifications ──
+      match /notifications/{notifId} {
+        allow read: if isOwner(userId);
+        allow update: if isOwner(userId); // Mark as read
+        allow create: if false; // Only Cloud Functions should create notifications
+        allow delete: if isOwner(userId);
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // PRODUCTS — Public catalog
+    // Anyone can read. Only admins (or Firebase Console / Admin SDK)
+    // can write.
+    // ═══════════════════════════════════════════════════════════════
+    match /products/{productId} {
+      allow read: if true;
+      allow create: if isAdmin() || isAuthenticated(); // Temporary: allows seeder; tighten to isAdmin() in production
+      allow update, delete: if isAdmin();
+
+      // ── Product Reviews ──
+      match /reviews/{reviewId} {
+        allow read: if true; // Anyone can read reviews
+        allow create: if isAuthenticated()
+          && request.resource.data.userId == request.auth.uid; // Must be their own review
+        allow update: if isAuthenticated()
+          && resource.data.userId == request.auth.uid; // Can only edit own review
+        allow delete: if isAuthenticated()
+          && resource.data.userId == request.auth.uid
+          || isAdmin();
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // CATEGORIES — Public catalog metadata
+    // ═══════════════════════════════════════════════════════════════
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // BANNERS — Promotional banners for the home screen
+    // ═══════════════════════════════════════════════════════════════
+    match /banners/{bannerId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // COUPONS — Promo codes
+    // ═══════════════════════════════════════════════════════════════
+    match /coupons/{couponId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // TOP-LEVEL ORDERS
+    // Users can create and read their own orders.
+    // Only admins or Cloud Functions can update order status.
+    // ═══════════════════════════════════════════════════════════════
+    match /orders/{orderId} {
+      allow read: if isAuthenticated()
+        && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated()
+        && request.resource.data.userId == request.auth.uid;
+      allow update: if isAdmin(); // Only admin/backend can change order status
+      allow delete: if false; // Orders are never deleted
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // CHATS — Participant-based access
+    // ═══════════════════════════════════════════════════════════════
+    match /chats/{chatId} {
+      allow read, write: if isAuthenticated()
+        && request.auth.uid in resource.data.participants;
+
+      // Allow creation of a new chat by an authenticated user.
+      allow create: if isAuthenticated()
+        && request.auth.uid in request.resource.data.participants;
+
+      // Messages subcollection: only chat participants can read/write.
+      match /messages/{messageId} {
+        allow read, write: if isAuthenticated()
+          && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // ADMINS — Admin user registry
+    // Only readable by admins. Writable only via Admin SDK.
+    // ═══════════════════════════════════════════════════════════════
+    match /admins/{adminId} {
+      allow read: if isAdmin();
+      allow write: if false; // Managed via Admin SDK / Firebase Console only
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // GLOBAL NOTIFICATIONS — Broadcast announcements
+    // ═══════════════════════════════════════════════════════════════
+    match /notifications/{notifId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // ANALYTICS — Server-side aggregated data
+    // ═══════════════════════════════════════════════════════════════
+    match /analytics/{docId} {
+      allow read: if isAdmin();
+      allow write: if false; // Only Cloud Functions write analytics
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // SETTINGS — App-wide configuration
+    // ═══════════════════════════════════════════════════════════════
+    match /settings/{settingId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // CATCH-ALL — Deny everything not explicitly matched above.
+    // This is critical to prevent unintended data access.
+    // ═══════════════════════════════════════════════════════════════
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

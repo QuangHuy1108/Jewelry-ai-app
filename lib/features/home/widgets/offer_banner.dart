@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
+import 'package:jewelry_app/services/product_service.dart';
 import '../../offer/screens/special_offers_screen.dart';
 
 class OfferBanner extends StatefulWidget {
@@ -13,85 +15,96 @@ class OfferBanner extends StatefulWidget {
 class _OfferBannerState extends State<OfferBanner> {
   int activeIndex = 0;
 
-  final images = [
-    "https://i.postimg.cc/43qyqfT2/h4.jpg",
-    "https://i.postimg.cc/xC6HXDrd/h3.jpg",
-    "https://i.postimg.cc/hGF0nBgP/h2.jpg",
-  ];
-
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                "Special Offers",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black),
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: ProductService().getBannersStream(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator(color: Color(0xFF333333))));
+        }
+
+        final docs = snapshot.data?.docs ?? [];
+        if (docs.isEmpty) return const SizedBox.shrink();
+
+        final banners = docs.map((d) => d.data()).toList();
+
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    "Special Offers",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black),
+                  ),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const SpecialOffersScreen()),
+                      );
+                    },
+                    child: const Text(
+                      "See All",
+                      style: TextStyle(fontSize: 14, color: Colors.grey),
+                    ),
+                  ),
+                ],
               ),
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const SpecialOffersScreen()),
-                  );
+            ),
+            CarouselSlider.builder(
+              itemCount: banners.length,
+              options: CarouselOptions(
+                height: 200,
+                autoPlay: true,
+                enlargeCenterPage: true,
+                viewportFraction: 0.9,
+                autoPlayAnimationDuration: const Duration(milliseconds: 800),
+                onPageChanged: (index, reason) {
+                  setState(() => activeIndex = index);
                 },
-                child: const Text(
-                  "See All",
-                  style: TextStyle(fontSize: 14, color: Colors.grey),
-                ),
               ),
-            ],
-          ),
-        ),
-        CarouselSlider.builder(
-          itemCount: images.length,
-          options: CarouselOptions(
-            height: 200, // Increased from 180 to prevent overflow
-            autoPlay: true,
-            enlargeCenterPage: true,
-            viewportFraction: 0.9,
-            autoPlayAnimationDuration: const Duration(milliseconds: 800),
-            onPageChanged: (index, reason) {
-              setState(() => activeIndex = index);
-            },
-          ),
-          itemBuilder: (context, index, realIndex) {
-            return buildBanner(images[index]);
-          },
-        ),
-
-        const SizedBox(height: 12),
-
-        AnimatedSmoothIndicator(
-          activeIndex: activeIndex,
-          count: images.length,
-          effect: const ExpandingDotsEffect(
-            dotHeight: 6,
-            dotWidth: 6,
-            activeDotColor: Colors.black,
-            dotColor: Colors.black26,
-          ),
-        )
-      ],
+              itemBuilder: (context, index, realIndex) {
+                return buildBanner(banners[index]);
+              },
+            ),
+            const SizedBox(height: 12),
+            AnimatedSmoothIndicator(
+              activeIndex: activeIndex,
+              count: banners.length,
+              effect: const ExpandingDotsEffect(
+                dotHeight: 6,
+                dotWidth: 6,
+                activeDotColor: Colors.black,
+                dotColor: Colors.black26,
+              ),
+            )
+          ],
+        );
+      },
     );
   }
 
-  Widget buildBanner(String url) {
+  Widget buildBanner(Map<String, dynamic> banner) {
+    final String imageUrl = banner['image'] ?? '';
+    final String title = banner['title'] ?? 'Special Offer';
+    final String subtitle = banner['subtitle'] ?? '';
+    final String label = banner['label'] ?? '';
+
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 5),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         image: DecorationImage(
-          image: NetworkImage(url),
+          image: NetworkImage(imageUrl),
           fit: BoxFit.cover,
         ),
       ),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), // Adjusted from all(16)
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
           gradient: LinearGradient(
@@ -105,27 +118,28 @@ class _OfferBannerState extends State<OfferBanner> {
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min, // Use min size for the column
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
+            if (label.isNotEmpty)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 10)),
               ),
-              child: const Text("Limited time!", style: TextStyle(color: Colors.white, fontSize: 10)), // Reduced from 12
-            ),
-            const SizedBox(height: 8), // Reduced from 12
-            const Text("Get Special Offer",
-                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)), // Reduced from 18
+            const SizedBox(height: 8),
+            Text(title,
+                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
             const Spacer(),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                const Flexible( // Use Flexible to prevent horizontal overflow
-                  child: Text("Up to 40%",
-                      style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)), // Reduced from 26
+                Flexible(
+                  child: Text(subtitle,
+                      style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
                 ),
                 ElevatedButton(
                   onPressed: () {
@@ -141,7 +155,7 @@ class _OfferBannerState extends State<OfferBanner> {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                    minimumSize: const Size(0, 32), // Reduced from 36
+                    minimumSize: const Size(0, 32),
                     elevation: 0,
                   ),
                   child: const Text("Order Now", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
