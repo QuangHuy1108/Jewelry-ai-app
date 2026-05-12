@@ -6,6 +6,7 @@ import '../widgets/product_grid.dart';
 import 'package:jewelry_app/features/home/widgets/bottom_nav.dart';
 import '../widgets/popular_products_section.dart';
 import 'package:jewelry_app/services/product_service.dart';
+import 'package:jewelry_app/services/coupon_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,6 +20,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     ProductService().seedDatabase();
+    CouponService().seedCoupons();
   }
 
   @override

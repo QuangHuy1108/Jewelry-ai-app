@@ -13,3 +13,9 @@ exports.onOrderUpdated = orderFunctions.onOrderUpdated;
 exports.onWalletTopUp = orderFunctions.onWalletTopUp;
 exports.dailyAnalytics = orderFunctions.dailyAnalytics;
 exports.autoCancelStaleOrders = orderFunctions.autoCancelStaleOrders;
+
+// ── Admin & Analytics ──
+const adminFunctions = require('./adminFunctions');
+exports.setAdminRole = adminFunctions.setAdminRole;
+exports.removeAdminRole = adminFunctions.removeAdminRole;
+exports.getDashboardStats = adminFunctions.getDashboardStats;

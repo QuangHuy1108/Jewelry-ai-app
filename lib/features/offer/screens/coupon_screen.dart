@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:jewelry_app/services/coupon_service.dart';
 import '../widgets/coupon_card.dart';
 
 class CouponScreen extends StatefulWidget {
@@ -16,48 +18,7 @@ class CouponScreen extends StatefulWidget {
 }
 
 class _CouponScreenState extends State<CouponScreen> {
-  bool _isLoading = true;
-  List<Map<String, dynamic>> _coupons = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _loadCoupons();
-  }
-
-  Future<void> _loadCoupons() async {
-    setState(() => _isLoading = true);
-    // Simulate API fetch delay
-    await Future.delayed(const Duration(milliseconds: 1500));
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-        _coupons = [
-          {
-            "code": "WELCOME200",
-            "condition": "Min. spend \$500. Valid for first order.",
-            "discount": "Get \$200 OFF",
-          },
-          {
-            "code": "GOLDENSET",
-            "condition": "Valid for Gold jewelry sets only.",
-            "discount": "Get 15% OFF",
-          },
-          {
-            "code": "FREESHIP",
-            "condition": "Free shipping on all orders over \$100.",
-            "discount": "Free Shipping",
-          },
-          {
-            "code": "EXPIRED10",
-            "condition": "Halloween special offer.",
-            "discount": "Get 10% OFF",
-            "isExpired": true,
-          },
-        ];
-      });
-    }
-  }
+  final CouponService _couponService = CouponService();
 
   @override
   Widget build(BuildContext context) {
@@ -69,9 +30,9 @@ class _CouponScreenState extends State<CouponScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildHeader(context),
-            Padding(
-              padding: const EdgeInsets.only(left: 20, top: 24, bottom: 16),
-              child: const Text(
+            const Padding(
+              padding: EdgeInsets.only(left: 20, top: 24, bottom: 16),
+              child: Text(
                 'Vouchers for you',
                 style: TextStyle(
                   fontSize: 18,
@@ -81,11 +42,17 @@ class _CouponScreenState extends State<CouponScreen> {
               ),
             ),
             Expanded(
-              child: _isLoading
-                  ? _buildLoadingList()
-                  : _coupons.isEmpty
-                      ? _buildEmptyState()
-                      : _buildCouponList(),
+              child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                stream: _couponService.getActiveCouponsStream(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return _buildLoadingList();
+                  }
+                  final docs = snapshot.data?.docs ?? [];
+                  if (docs.isEmpty) return _buildEmptyState();
+                  return _buildCouponList(docs);
+                },
+              ),
             ),
           ],
         ),
@@ -95,14 +62,13 @@ class _CouponScreenState extends State<CouponScreen> {
 
   Widget _buildHeader(BuildContext context) {
     return Container(
-      height: 70, // Height: 60px - 80px
+      height: 70,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: const BoxDecoration(
         color: Color(0xFFFFFFFF),
       ),
       child: Row(
         children: [
-          // Circular Back Button
           GestureDetector(
             onTap: () => Navigator.pop(context),
             child: Container(
@@ -127,7 +93,7 @@ class _CouponScreenState extends State<CouponScreen> {
               ),
             ),
           ),
-          const SizedBox(width: 40), // Balance
+          const SizedBox(width: 40),
         ],
       ),
     );
@@ -159,24 +125,13 @@ class _CouponScreenState extends State<CouponScreen> {
                 color: Color(0xFF333333),
               ),
             ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: _loadCoupons,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF333333),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-              ),
-              child: const Text('Refresh'),
-            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCouponList() {
+  Widget _buildCouponList(List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) {
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
     
     return ListView.separated(
@@ -185,12 +140,24 @@ class _CouponScreenState extends State<CouponScreen> {
         right: 20,
         bottom: 20 + bottomPadding,
       ),
-      itemCount: _coupons.length,
+      itemCount: docs.length,
       separatorBuilder: (_, __) => const SizedBox(height: 16),
       itemBuilder: (context, index) {
-        final coupon = _coupons[index];
-        
-        // Entrance: Slide-up or Fade-in for the list (Duration: 400ms).
+        final doc = docs[index];
+        final coupon = doc.data();
+        coupon['docId'] = doc.id;
+
+        // Check if expired
+        bool isExpired = coupon['isExpired'] == true;
+        if (!isExpired && coupon['expiresAt'] != null) {
+          final expiryDate = (coupon['expiresAt'] as Timestamp).toDate();
+          isExpired = expiryDate.isBefore(DateTime.now());
+        }
+        // Check usage
+        if (!isExpired && coupon['maxUses'] != null && coupon['usedCount'] != null) {
+          isExpired = coupon['usedCount'] >= coupon['maxUses'];
+        }
+
         return TweenAnimationBuilder<double>(
           tween: Tween<double>(begin: 0.0, end: 1.0),
           duration: const Duration(milliseconds: 400),
@@ -206,15 +173,15 @@ class _CouponScreenState extends State<CouponScreen> {
           },
           child: GestureDetector(
             onTap: () {
-              if (widget.cartItemId != null && !(coupon['isExpired'] ?? false)) {
+              if (widget.cartItemId != null && !isExpired) {
                 Navigator.pop(context, coupon);
               }
             },
             child: CouponCard(
-              code: coupon['code'],
-              condition: coupon['condition'],
-              discount: coupon['discount'],
-              isExpired: coupon['isExpired'] ?? false,
+              code: coupon['code'] ?? '',
+              condition: coupon['condition'] ?? '',
+              discount: coupon['discount'] ?? '',
+              isExpired: isExpired,
             ),
           ),
         );
