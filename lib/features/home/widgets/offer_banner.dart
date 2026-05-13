@@ -13,7 +13,13 @@ class OfferBanner extends StatefulWidget {
 }
 
 class _OfferBannerState extends State<OfferBanner> {
-  int activeIndex = 0;
+  final ValueNotifier<int> _activeIndexNotifier = ValueNotifier<int>(0);
+
+  @override
+  void dispose() {
+    _activeIndexNotifier.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +27,10 @@ class _OfferBannerState extends State<OfferBanner> {
       stream: ProductService().getBannersStream(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SizedBox(height: 200, child: Center(child: CircularProgressIndicator(color: Color(0xFF333333))));
+          return const SizedBox(
+            height: 200, 
+            child: Center(child: CircularProgressIndicator(color: Color(0xFF333333)))
+          );
         }
 
         final docs = snapshot.data?.docs ?? [];
@@ -64,7 +73,8 @@ class _OfferBannerState extends State<OfferBanner> {
                 viewportFraction: 0.9,
                 autoPlayAnimationDuration: const Duration(milliseconds: 800),
                 onPageChanged: (index, reason) {
-                  setState(() => activeIndex = index);
+                  // Updates dot indicator without triggering expensive parent/carousel rebuilds
+                  _activeIndexNotifier.value = index;
                 },
               ),
               itemBuilder: (context, index, realIndex) {
@@ -72,15 +82,20 @@ class _OfferBannerState extends State<OfferBanner> {
               },
             ),
             const SizedBox(height: 12),
-            AnimatedSmoothIndicator(
-              activeIndex: activeIndex,
-              count: banners.length,
-              effect: const ExpandingDotsEffect(
-                dotHeight: 6,
-                dotWidth: 6,
-                activeDotColor: Colors.black,
-                dotColor: Colors.black26,
-              ),
+            ValueListenableBuilder<int>(
+              valueListenable: _activeIndexNotifier,
+              builder: (context, activeIndex, child) {
+                return AnimatedSmoothIndicator(
+                  activeIndex: activeIndex,
+                  count: banners.length,
+                  effect: const ExpandingDotsEffect(
+                    dotHeight: 6,
+                    dotWidth: 6,
+                    activeDotColor: Colors.black,
+                    dotColor: Colors.black26,
+                  ),
+                );
+              },
             )
           ],
         );
