@@ -7,7 +7,7 @@ import '../models/notification_model.dart';
 class NotificationProvider extends ChangeNotifier {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  
+
   List<NotificationItem> _notifications = [];
   StreamSubscription<QuerySnapshot>? _subscription;
 
@@ -15,7 +15,6 @@ class NotificationProvider extends ChangeNotifier {
   int get unreadCount => _notifications.where((n) => !n.isRead).length;
 
   NotificationProvider() {
-    _initDemoData();
     _startListening();
   }
 
@@ -25,52 +24,11 @@ class NotificationProvider extends ChangeNotifier {
     super.dispose();
   }
 
-  void _initDemoData() {
-    // Injecting some demo data for immediate visual testing if Firestore is empty
-    _notifications = [
-      NotificationItem(
-        id: 'mock1',
-        type: 'order',
-        title: 'Order Shipped',
-        body: 'Your order GU-20260322-7F3A has been shipped and is on its way.',
-        targetId: 'order123',
-        isRead: false,
-        createdAt: DateTime.now().subtract(const Duration(hours: 1)),
-        priority: 'high',
-        isPinned: true,
-      ),
-      NotificationItem(
-        id: 'mock2',
-        type: 'promotion',
-        title: 'Flash Sale is Live!',
-        body: 'Get up to 30% off on all Diamond rings. Limited time offer!',
-        targetId: 'promo123',
-        isRead: false,
-        createdAt: DateTime.now().subtract(const Duration(hours: 3)),
-        priority: 'low',
-        isPinned: false,
-      ),
-      NotificationItem(
-        id: 'mock3',
-        type: 'chat',
-        title: 'Jenny Doe',
-        body: 'Thanks for reaching out! Let me check that for you.',
-        targetId: 'seller456',
-        sellerId: 'seller456',
-        isRead: true,
-        createdAt: DateTime.now().subtract(const Duration(days: 1)),
-        priority: 'medium',
-        isPinned: false,
-      ),
-    ];
-  }
-
   void _startListening() {
     final user = _auth.currentUser;
     if (user == null) {
-      // For this demo, we'll continue using mock data if no user is authenticated.
-      // But in a real app, we would wait for auth.
-      return; 
+      // No authenticated user — notifications list remains empty.
+      return;
     }
 
     _subscription = _firestore
@@ -80,25 +38,23 @@ class NotificationProvider extends ChangeNotifier {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .listen((snapshot) {
-      if (snapshot.docs.isNotEmpty) {
-        _notifications = snapshot.docs.map((doc) => NotificationItem.fromJson(doc.data(), doc.id)).toList();
-        notifyListeners();
-      }
-    });
+          _notifications = snapshot.docs
+              .map((doc) => NotificationItem.fromJson(doc.data(), doc.id))
+              .toList();
+          notifyListeners();
+        });
   }
 
   Future<void> addNotification(NotificationItem item) async {
     final user = _auth.currentUser;
     if (user != null) {
+      // Idempotent write using message ID to prevent duplicate notification rendering
       await _firestore
           .collection('users')
           .doc(user.uid)
           .collection('notifications')
-          .add(item.toJson());
-    } else {
-      // Mock mode fallback
-      _notifications.insert(0, item);
-      notifyListeners();
+          .doc(item.id)
+          .set(item.toJson(), SetOptions(merge: true));
     }
   }
 
@@ -107,15 +63,18 @@ class NotificationProvider extends ChangeNotifier {
     if (index != -1 && !_notifications[index].isRead) {
       _notifications[index] = _notifications[index].copyWith(isRead: true);
       notifyListeners();
-      
+
       final user = _auth.currentUser;
-      if (user != null && !id.startsWith('mock')) {
+      if (user != null) {
         await _firestore
             .collection('users')
             .doc(user.uid)
             .collection('notifications')
             .doc(id)
-            .update({'isRead': true});
+            .update({'isRead': true, 'readAt': FieldValue.serverTimestamp()});
+
+        // Broadcast telemetry lifecycle packet down to decoupled clusters
+        _logTelemetryEvent(id, 'OPENED');
       }
     }
   }
@@ -128,7 +87,7 @@ class NotificationProvider extends ChangeNotifier {
       notifyListeners();
 
       final user = _auth.currentUser;
-      if (user != null && !id.startsWith('mock')) {
+      if (user != null) {
         await _firestore
             .collection('users')
             .doc(user.uid)
@@ -145,26 +104,26 @@ class NotificationProvider extends ChangeNotifier {
     final batch = _firestore.batch();
 
     for (int i = 0; i < _notifications.length; i++) {
-        if (_notifications[i].type == type && !_notifications[i].isRead) {
-            _notifications[i] = _notifications[i].copyWith(isRead: true);
-            changed = true;
+      if (_notifications[i].type == type && !_notifications[i].isRead) {
+        _notifications[i] = _notifications[i].copyWith(isRead: true);
+        changed = true;
 
-            if (user != null && !_notifications[i].id.startsWith('mock')) {
-                final docRef = _firestore
-                    .collection('users')
-                    .doc(user.uid)
-                    .collection('notifications')
-                    .doc(_notifications[i].id);
-                batch.update(docRef, {'isRead': true});
-            }
+        if (user != null) {
+          final docRef = _firestore
+              .collection('users')
+              .doc(user.uid)
+              .collection('notifications')
+              .doc(_notifications[i].id);
+          batch.update(docRef, {'isRead': true});
         }
+      }
     }
 
     if (changed) {
-        notifyListeners();
-        if (user != null) {
-            await batch.commit();
-        }
+      notifyListeners();
+      if (user != null) {
+        await batch.commit();
+      }
     }
   }
 
@@ -175,15 +134,35 @@ class NotificationProvider extends ChangeNotifier {
       notifyListeners();
 
       final user = _auth.currentUser;
-      if (user != null && !id.startsWith('mock')) {
+      if (user != null) {
         await _firestore
             .collection('users')
             .doc(user.uid)
             .collection('notifications')
             .doc(id)
             .delete();
+
+        // Broadcast dismissal telemetry event downstream
+        _logTelemetryEvent(id, 'DISMISSED');
       }
     }
+  }
+
+  Future<void> _logTelemetryEvent(
+    String notificationId,
+    String eventType,
+  ) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    try {
+      await _firestore.collection('notification_events').add({
+        'notificationId': notificationId,
+        'userId': user.uid,
+        'eventType': eventType,
+        'clientPlatform': 'Flutter',
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+    } catch (_) {}
   }
 
   Future<void> undoDelete(NotificationItem item) async {
@@ -192,7 +171,7 @@ class NotificationProvider extends ChangeNotifier {
     notifyListeners();
 
     final user = _auth.currentUser;
-    if (user != null && !item.id.startsWith('mock')) {
+    if (user != null) {
       await _firestore
           .collection('users')
           .doc(user.uid)

@@ -23,3 +23,21 @@ exports.getDashboardStats = adminFunctions.getDashboardStats;
 // ── Payment Webhooks ──
 const paymentFunctions = require('./paymentFunctions');
 exports.paymentWebhook = paymentFunctions.paymentWebhook;
+
+// ── Commission & Seller Financial Engine ──
+const commissionFunctions = require('./commissionFunctions');
+exports.onAffiliateOrderCreated = commissionFunctions.onAffiliateOrderCreated;
+exports.onOrderStatusForCommission = commissionFunctions.onOrderStatusForCommission;
+exports.processWithdrawalRequest = commissionFunctions.processWithdrawalRequest;
+exports.validatePromoCode = commissionFunctions.validatePromoCode;
+exports.applyPromoCode = commissionFunctions.applyPromoCode;
+exports.recordReferralClick = commissionFunctions.recordReferralClick;
+
+// ── AI Predictive Engagement Engine (Phase 3) ──
+const aiPredictiveEngine = require('./aiPredictiveEngine');
+exports.calibrateUserTimingClusters = aiPredictiveEngine.calibrateUserTimingClusters;
+exports.triggerIntelligentCartRecovery = aiPredictiveEngine.triggerIntelligentCartRecovery;
+
+// ── Chat Notifications ──
+const chatNotifications = require('./chatNotifications');
+exports.onChatMessageCreated = chatNotifications.onChatMessageCreated;

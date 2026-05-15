@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:jewelry_app/core/utils/luxury_toast.dart';
 import 'package:jewelry_app/services/user_service.dart';
 
@@ -18,7 +21,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final UserService _userService = UserService();
   bool _isLoading = true;
   String _selectedGender = 'Select';
-  
+  String? _avatarUrl;
+  File? _newImageFile;
+  final ImagePicker _picker = ImagePicker();
+
   @override
   void initState() {
     super.initState();
@@ -39,6 +45,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           if (data['name'] != null && data['name'].toString().isNotEmpty) _nameController.text = data['name'];
           if (data['phone'] != null && data['phone'].toString().isNotEmpty) _phoneController.text = data['phone'];
           if (data['gender'] != null) _selectedGender = data['gender'];
+          if (data['avatar'] != null && data['avatar'].toString().isNotEmpty) {
+            _avatarUrl = data['avatar'];
+          }
         }
       } catch (e) {
         // ignore
@@ -47,6 +56,64 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     setState(() {
       _isLoading = false;
     });
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    Navigator.pop(context); // Close bottom sheet
+    try {
+      final XFile? pickedFile = await _picker.pickImage(
+        source: source,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
+      );
+      if (pickedFile != null) {
+        setState(() {
+          _newImageFile = File(pickedFile.path);
+        });
+      }
+    } catch (e) {
+      debugPrint("Error picking image: $e");
+    }
+  }
+
+  void _showImagePickerOptions() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.camera_alt_outlined),
+                title: const Text('Take a photo'),
+                onTap: () => _pickImage(ImageSource.camera),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Choose from gallery'),
+                onTap: () => _pickImage(ImageSource.gallery),
+              ),
+              if (_avatarUrl != null || _newImageFile != null)
+                ListTile(
+                  leading: const Icon(Icons.delete_outline, color: Colors.red),
+                  title: const Text('Remove photo', style: TextStyle(color: Colors.red)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    setState(() {
+                      _newImageFile = null;
+                      _avatarUrl = null;
+                    });
+                  },
+                ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -78,16 +145,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     _buildTextField(_nameController),
                     const SizedBox(height: 20),
                     _buildLabel('Phone Number'),
-                    _buildTextField(
-                      _phoneController,
-                      trailing: GestureDetector(
-                        onTap: () => LuxuryToast.show(context, message: 'Change Phone Number coming soon'),
-                        child: const Text('Change', style: TextStyle(color: Color(0xFF999999), fontWeight: FontWeight.w500)),
-                      ),
-                    ),
+                    _buildTextField(_phoneController),
                     const SizedBox(height: 20),
                     _buildLabel('Email'),
-                    _buildTextField(_emailController, enabled: false), // usually email isn't directly editable
+                    _buildTextField(_emailController, enabled: false),
                     const SizedBox(height: 20),
                     _buildLabel('Gender'),
                     _buildDropdownField(),
@@ -137,6 +198,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Widget _buildProfileAvatar() {
+    ImageProvider? imageProvider;
+    if (_newImageFile != null) {
+      imageProvider = FileImage(_newImageFile!);
+    } else if (_avatarUrl != null && _avatarUrl!.isNotEmpty) {
+      imageProvider = NetworkImage(_avatarUrl!);
+    } else if (FirebaseAuth.instance.currentUser?.photoURL?.isNotEmpty == true) {
+      imageProvider = NetworkImage(FirebaseAuth.instance.currentUser!.photoURL!);
+    }
+
     return Center(
       child: Stack(
         children: [
@@ -146,29 +216,35 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: const Color(0xFFE0E0E0),
-              image: FirebaseAuth.instance.currentUser?.photoURL != null
+              image: imageProvider != null
                   ? DecorationImage(
-                      image: NetworkImage(FirebaseAuth.instance.currentUser!.photoURL!),
+                      image: imageProvider,
                       fit: BoxFit.cover,
                     )
                   : null,
             ),
+            child: imageProvider == null
+                ? const Icon(Icons.person, size: 50, color: Colors.grey)
+                : null,
           ),
           Positioned(
             bottom: 0,
             right: 0,
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: const Color(0xFF777777),
-                shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFFFAFAFA), width: 3),
-              ),
-              child: const Icon(
-                Icons.edit_outlined,
-                color: Colors.white,
-                size: 18,
+            child: GestureDetector(
+              onTap: _showImagePickerOptions,
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF777777),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFFFAFAFA), width: 3),
+                ),
+                child: const Icon(
+                  Icons.edit_outlined,
+                  color: Colors.white,
+                  size: 18,
+                ),
               ),
             ),
           ),
@@ -257,11 +333,32 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             onPressed: () async {
               setState(() => _isLoading = true);
               try {
+                final user = FirebaseAuth.instance.currentUser;
+
+                // Upload new avatar if selected
+                String? newAvatarUrl;
+                if (_newImageFile != null && user != null) {
+                  try {
+                    final storageRef = FirebaseStorage.instance
+                        .ref()
+                        .child('user_avatars')
+                        .child('${user.uid}.jpg');
+                    await storageRef.putFile(_newImageFile!);
+                    newAvatarUrl = await storageRef.getDownloadURL();
+                    await user.updatePhotoURL(newAvatarUrl);
+                  } catch (e) {
+                    debugPrint('Avatar upload failed: $e');
+                  }
+                }
+
+                // Update profile (including avatar if changed)
                 await _userService.updateUserProfile(
                   name: _nameController.text.trim(),
                   phone: _phoneController.text.trim(),
                   gender: _selectedGender,
+                  avatar: newAvatarUrl ?? _avatarUrl,
                 );
+
                 if (context.mounted) {
                   LuxuryToast.show(context, message: 'Profile Updated');
                   Navigator.pop(context);

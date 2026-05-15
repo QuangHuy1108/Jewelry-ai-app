@@ -36,14 +36,27 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
     super.dispose();
   }
 
-  final Map<String, dynamic> _product = {
-    "name": "Gold Earring",
-    "category": "Earrings",
-    "price": 1200.0,
-    "originalPrice": 1500.0,
-    "quantity": 1,
-    "image": "https://i.postimg.cc/4yh339Lk/h7.jpg",
-  };
+  Map<String, dynamic> _product = {};
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_product.isEmpty) {
+      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      if (args != null) {
+        setState(() {
+          _product = {
+            "name": args['name'] ?? 'Product',
+            "category": args['category'] ?? '',
+            "price": (args['price'] is num) ? args['price'] : (double.tryParse(args['price']?.toString().replaceAll('\$', '') ?? '0') ?? 0),
+            "originalPrice": args['originalPrice'] ?? args['price'] ?? 0,
+            "quantity": args['quantity'] ?? 1,
+            "image": args['image'] ?? '',
+          };
+        });
+      }
+    }
+  }
 
 
   Future<void> _pickImage() async {
@@ -145,12 +158,19 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
-            child: Image.network(
-              _product['image'],
-              width: 70,
-              height: 70,
-              fit: BoxFit.cover,
-            ),
+            child: (_product['image'] as String?)?.isNotEmpty == true
+                ? Image.network(
+                    _product['image']!,
+                    width: 70,
+                    height: 70,
+                    fit: BoxFit.cover,
+                  )
+                : Container(
+                    width: 70,
+                    height: 70,
+                    color: Colors.grey.shade200,
+                    child: const Icon(Icons.image, color: Colors.grey),
+                  ),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -158,7 +178,7 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _product['name'],
+                  _product['name'] ?? 'Product Name',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -167,7 +187,7 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  _product['category'],
+                  _product['category'] ?? 'Category',
                   style: const TextStyle(
                     fontSize: 13,
                     color: Color(0xFF999999),
@@ -177,7 +197,7 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
                 Row(
                   children: [
                     Text(
-                      '\$${_product['price'].toStringAsFixed(0)}',
+                      '\$${(_product['price'] ?? 0).toStringAsFixed(0)}',
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
@@ -185,7 +205,7 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      'Qty: ${_product['quantity']}',
+                      'Qty: ${_product['quantity'] ?? 1}',
                       style: const TextStyle(
                         fontSize: 13,
                         color: Color(0xFF999999),

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:jewelry_app/core/utils/luxury_toast.dart';
+import 'package:jewelry_app/services/address_service.dart';
 import '../../cart/providers/cart_provider.dart';
 import '../../offer/screens/coupon_screen.dart';
 import '../models/order_model.dart';
@@ -18,14 +19,12 @@ class CheckoutScreen extends StatefulWidget {
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
   bool _isLoading = false;
+  final AddressService _addressService = AddressService();
 
-  // Address
-  final Map<String, dynamic> _address = {
-    'name': 'Home',
-    'detail': '123 Le Loi Street, District 1',
-    'city': 'Ho Chi Minh City, Vietnam',
-    'phone': '+84 912 345 678',
-  };
+  // Address — dynamically loaded from Firestore
+  Map<String, dynamic> _address = {};
+  List<Map<String, dynamic>> _savedAddresses = [];
+  bool _isLoadingAddresses = true;
 
   // Shipping
   String _selectedShipping = 'premium';
@@ -46,9 +45,40 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   void initState() {
     super.initState();
+    _loadSavedAddresses();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<PaymentProvider>().loadSavedPayment();
     });
+  }
+
+  Future<void> _loadSavedAddresses() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+      final snap = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('addresses')
+          .orderBy('createdAt', descending: true)
+          .get();
+      if (mounted) {
+        setState(() {
+          _savedAddresses = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+          if (_savedAddresses.isNotEmpty) {
+            final first = _savedAddresses.first;
+            _address = {
+              'name': first['type'] ?? 'Address',
+              'detail': first['address'] ?? '',
+              'city': first['landmark'] ?? '',
+              'phone': first['floor'] ?? '',
+            };
+          }
+          _isLoadingAddresses = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingAddresses = false);
+    }
   }
 
   // Voucher
@@ -129,19 +159,130 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ],
               ),
               GestureDetector(
-                onTap: () => LuxuryToast.show(context, message: 'Address selection coming soon'),
+                onTap: _showAddressPicker,
                 child: const Text('Change', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFFD4AF37))),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          Text(_address['name'] ?? '', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF333333))),
-          const SizedBox(height: 4),
-          Text(_address['detail'] ?? '', style: const TextStyle(fontSize: 13, color: Color(0xFF777777))),
-          Text(_address['city'] ?? '', style: const TextStyle(fontSize: 13, color: Color(0xFF777777))),
-          const SizedBox(height: 4),
-          Text(_address['phone'] ?? '', style: const TextStyle(fontSize: 13, color: Color(0xFF777777))),
+          if (_isLoadingAddresses)
+            const Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)))
+          else if (_address.isEmpty)
+            GestureDetector(
+              onTap: () async {
+                await Navigator.pushNamed(context, AppRouter.addAddress);
+                _loadSavedAddresses();
+              },
+              child: const Row(
+                children: [
+                  Icon(Icons.add_circle_outline, size: 18, color: Color(0xFFD4AF37)),
+                  SizedBox(width: 8),
+                  Text('Add a shipping address', style: TextStyle(fontSize: 14, color: Color(0xFFD4AF37), fontWeight: FontWeight.w600)),
+                ],
+              ),
+            )
+          else ...[
+            Text(_address['name'] ?? '', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF333333))),
+            const SizedBox(height: 4),
+            Text(_address['detail'] ?? '', style: const TextStyle(fontSize: 13, color: Color(0xFF777777))),
+            if ((_address['city'] ?? '').toString().isNotEmpty)
+              Text(_address['city'] ?? '', style: const TextStyle(fontSize: 13, color: Color(0xFF777777))),
+            if ((_address['phone'] ?? '').toString().isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(_address['phone'] ?? '', style: const TextStyle(fontSize: 13, color: Color(0xFF777777))),
+            ],
+          ],
         ],
+      ),
+    );
+  }
+
+  void _showAddressPicker() {
+    if (_savedAddresses.isEmpty) {
+      Navigator.pushNamed(context, AppRouter.addAddress).then((_) => _loadSavedAddresses());
+      return;
+    }
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)))),
+            const SizedBox(height: 16),
+            const Text('Select Address', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF333333))),
+            const SizedBox(height: 16),
+            ..._savedAddresses.map((addr) {
+              final isSelected = _address['detail'] == addr['address'];
+              return GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _address = {
+                      'name': addr['type'] ?? 'Address',
+                      'detail': addr['address'] ?? '',
+                      'city': addr['landmark'] ?? '',
+                      'phone': addr['floor'] ?? '',
+                    };
+                  });
+                  Navigator.pop(ctx);
+                },
+                child: Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: isSelected ? const Color(0xFFFBF7EE) : Colors.white,
+                    border: Border.all(color: isSelected ? const Color(0xFFD4AF37) : const Color(0xFFEEEEEE)),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.location_on, size: 20, color: isSelected ? const Color(0xFFD4AF37) : const Color(0xFF999999)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(addr['type'] ?? 'Address', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Color(0xFF333333))),
+                            const SizedBox(height: 2),
+                            Text(addr['address'] ?? '', style: const TextStyle(fontSize: 12, color: Color(0xFF777777))),
+                          ],
+                        ),
+                      ),
+                      if (isSelected) const Icon(Icons.check_circle, size: 20, color: Color(0xFFD4AF37)),
+                    ],
+                  ),
+                ),
+              );
+            }),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  Navigator.pushNamed(context, AppRouter.addAddress).then((_) => _loadSavedAddresses());
+                },
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Add New Address'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF333333),
+                  side: const BorderSide(color: Color(0xFFEEEEEE)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+            SizedBox(height: MediaQuery.of(ctx).padding.bottom + 8),
+          ],
+        ),
       ),
     );
   }
@@ -550,11 +691,30 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         voucher: _orderVoucher,
       );
 
+      final orderMap = order.toMap();
+
+      // Extract sellerId from products for seller dashboard linking
+      // Look up the first product's sellerId from Firestore
+      String? sellerId;
+      final firstProductId = items.first['id'];
+      if (firstProductId != null) {
+        final productDoc = await FirebaseFirestore.instance
+            .collection('products')
+            .doc(firstProductId.toString())
+            .get();
+        sellerId = productDoc.data()?['sellerId'];
+      }
+      if (sellerId != null) orderMap['sellerId'] = sellerId;
+
+      // Add customer info so seller can see who ordered
+      orderMap['customerName'] = user.displayName ?? user.email ?? 'Customer';
+      orderMap['customerAvatar'] = user.photoURL ?? '';
+
       // Save to main orders collection
       await FirebaseFirestore.instance
           .collection('orders')
           .doc(orderId)
-          .set(order.toMap());
+          .set(orderMap);
 
       // Save to user's orders sub-collection
       await FirebaseFirestore.instance
@@ -562,7 +722,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           .doc(user.uid)
           .collection('orders')
           .doc(orderId)
-          .set(order.toMap());
+          .set(orderMap);
 
       // Remove ONLY purchased items
       cart.removeSelectedItems();

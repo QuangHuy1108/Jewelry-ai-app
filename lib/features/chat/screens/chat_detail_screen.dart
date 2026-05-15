@@ -59,11 +59,21 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       final productId = _productContext?['id'] as String?;
       Future.microtask(() async {
         if (!mounted) return;
-        final chatId = await context.read<ChatProvider>().openChat(
-          sellerId: _sellerId!,
-          productId: productId,
-        );
-        if (mounted) setState(() => _chatId = chatId);
+        try {
+          final chatId = await context.read<ChatProvider>().openChat(
+            sellerId: _sellerId!,
+            productId: productId,
+          );
+          if (mounted) setState(() => _chatId = chatId);
+        } catch (e) {
+          debugPrint('Error opening chat: $e');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to open chat: $e')),
+            );
+            Navigator.pop(context); // Go back if we can't open the chat
+          }
+        }
       });
     }
   }

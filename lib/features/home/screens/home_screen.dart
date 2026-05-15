@@ -7,6 +7,7 @@ import 'package:jewelry_app/features/home/widgets/bottom_nav.dart';
 import '../widgets/popular_products_section.dart';
 import 'package:jewelry_app/services/product_service.dart';
 import 'package:jewelry_app/services/coupon_service.dart';
+import '../../../core/theme/app_colors.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -26,7 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
+      backgroundColor: AppColors.canvasParchment, // off-white parchment token base
       body: SafeArea(
         child: TweenAnimationBuilder<double>(
           tween: Tween<double>(begin: 0.0, end: 1.0),
@@ -49,7 +50,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 CategoryList(),
                 ProductGrid(),
                 PopularProductsSection(),
-                SizedBox(height: 20),
+                SizedBox(height: 32), // extra breathing room token pad
               ],
             ),
           ),

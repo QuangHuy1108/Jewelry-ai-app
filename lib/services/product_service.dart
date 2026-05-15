@@ -48,12 +48,103 @@ class ProductService {
     return _firestore.collection('products').doc(productId).get();
   }
 
+  // ─── Search & Suggestions ─────────────────────────────────────────
+
+  /// Returns all active products (used for client-side name filtering in search suggestions).
+  Future<List<Map<String, dynamic>>> getAllProductNames() async {
+    final snap = await _firestore
+        .collection('products')
+        .where('isActive', isEqualTo: true)
+        .get();
+    return snap.docs.map((d) => {'id': d.id, 'name': d.data()['name'] ?? ''}).toList();
+  }
+
+  /// Searches products whose name contains the query (case-insensitive via Firestore ordering trick).
+  /// Falls back to fetching all active products and filtering client-side.
+  Future<List<Map<String, dynamic>>> searchProducts(String query) async {
+    final snap = await _firestore
+        .collection('products')
+        .where('isActive', isEqualTo: true)
+        .get();
+    final lowerQuery = query.toLowerCase();
+    return snap.docs
+        .where((d) => (d.data()['name'] ?? '').toString().toLowerCase().contains(lowerQuery))
+        .map((d) => {'id': d.id, ...d.data()})
+        .toList();
+  }
+
+  // ─── Related Products ─────────────────────────────────────────────
+
+  /// Gets products in the same category, excluding the given product ID.
+  Future<List<Map<String, dynamic>>> getSimilarProducts(String category, String excludeId) async {
+    final snap = await _firestore
+        .collection('products')
+        .where('category', isEqualTo: category)
+        .where('isActive', isEqualTo: true)
+        .get();
+    return snap.docs
+        .where((d) => d.id != excludeId)
+        .map((d) => {'id': d.id, ...d.data()})
+        .toList();
+  }
+
+  /// Gets products in a DIFFERENT category (cross-sell recommendations).
+  Future<List<Map<String, dynamic>>> getRecommendedProducts(String currentCategory, {int limit = 4}) async {
+    final snap = await _firestore
+        .collection('products')
+        .where('isActive', isEqualTo: true)
+        .get();
+    return snap.docs
+        .where((d) => d.data()['category'] != currentCategory)
+        .take(limit)
+        .map((d) => {'id': d.id, ...d.data()})
+        .toList();
+  }
+
+  // ─── Reviews ──────────────────────────────────────────────────────
+
+  /// Stream of reviews for a given product.
+  Stream<QuerySnapshot<Map<String, dynamic>>> getReviewsStream(String productId) {
+    return _firestore
+        .collection('products')
+        .doc(productId)
+        .collection('reviews')
+        .orderBy('createdAt', descending: true)
+        .snapshots();
+  }
+
+  /// Adds a review to a product's reviews subcollection.
+  Future<void> addReview(String productId, Map<String, dynamic> review) {
+    return _firestore
+        .collection('products')
+        .doc(productId)
+        .collection('reviews')
+        .add(review);
+  }
+
+  // ─── Sellers ───────────────────────────────────────────────────────
+
+  /// Gets all sellers from the sellers collection.
+  Future<List<Map<String, dynamic>>> getSellers() async {
+    final snap = await _firestore.collection('sellers').get();
+    return snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+  }
+
+  /// Gets a specific seller by ID.
+  Future<Map<String, dynamic>?> getSellerById(String sellerId) async {
+    final doc = await _firestore.collection('sellers').doc(sellerId).get();
+    if (!doc.exists) return null;
+    return {'id': doc.id, ...doc.data()!};
+  }
+
   // ─── Seeder ───────────────────────────────────────────────────────
 
   Future<void> seedDatabase() async {
     await _seedProducts();
     await _seedCategories();
     await _seedBanners();
+    await _seedSellers();
+    await _seedReviews();
   }
 
   Future<void> _seedProducts() async {
@@ -407,5 +498,105 @@ class ProductService {
     }
 
     await batch.commit();
+  }
+
+  Future<void> _seedSellers() async {
+    final sellersRef = _firestore.collection('sellers');
+    final snap = await sellersRef.limit(1).get();
+    if (snap.docs.isNotEmpty) return;
+
+    final batch = _firestore.batch();
+    final sellers = [
+      {
+        'name': 'Jenny Doe',
+        'avatar': 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop',
+        'coverImage': 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=1000&auto=format&fit=crop',
+        'description': 'Expert jewelry consultant with over 10 years of experience in fine gemstones and precious metals. Helping you find the perfect piece for your special moments is my passion.',
+        'experienceYears': 10,
+        'totalSold': 1250,
+        'returningCustomers': 85.0,
+        'followersCount': 12400,
+        'favoritesCount': 8900,
+        'rating': 4.9,
+        'ratings': {
+          'Attitude': 4.9,
+          'Consulting Skill': 4.8,
+          'Product Knowledge': 5.0,
+          'Honesty': 4.9,
+          'After-sales Service': 4.7,
+        },
+      },
+      {
+        'name': 'Marcus Stone',
+        'avatar': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop',
+        'coverImage': 'https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=1000&auto=format&fit=crop',
+        'description': 'Specializing in bespoke engagement rings and custom designs. With a background in gemology, I bring expertise and passion to every client consultation.',
+        'experienceYears': 8,
+        'totalSold': 980,
+        'returningCustomers': 78.0,
+        'followersCount': 9200,
+        'favoritesCount': 6100,
+        'rating': 4.7,
+        'ratings': {
+          'Attitude': 4.7,
+          'Consulting Skill': 4.9,
+          'Product Knowledge': 4.8,
+          'Honesty': 4.6,
+          'After-sales Service': 4.5,
+        },
+      },
+    ];
+
+    for (var s in sellers) {
+      batch.set(sellersRef.doc(), s);
+    }
+    await batch.commit();
+  }
+
+  Future<void> _seedReviews() async {
+    // Seed reviews into the first product that has no reviews subcollection
+    final productsSnap = await _firestore.collection('products').limit(3).get();
+    if (productsSnap.docs.isEmpty) return;
+
+    for (final productDoc in productsSnap.docs) {
+      final reviewsSnap = await productDoc.reference.collection('reviews').limit(1).get();
+      if (reviewsSnap.docs.isNotEmpty) continue;
+
+      final batch = _firestore.batch();
+      final reviews = [
+        {
+          'name': 'Alex Johnson',
+          'date': 'January 15, 2026',
+          'rating': 5.0,
+          'comment': 'Absolutely stunning! The gold quality is top-notch and the design is even better in person. Highly recommend for any gift.',
+          'isVerified': true,
+          'avatar': 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop',
+          'createdAt': FieldValue.serverTimestamp(),
+        },
+        {
+          'name': 'Maria Garcia',
+          'date': 'January 8, 2026',
+          'rating': 4.0,
+          'comment': 'Very beautiful earrings. They are a bit smaller than I expected based on the photos, but the craftsmanship is excellent.',
+          'isVerified': true,
+          'avatar': 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop',
+          'createdAt': FieldValue.serverTimestamp(),
+        },
+        {
+          'name': 'James Smith',
+          'date': 'December 28, 2025',
+          'rating': 5.0,
+          'comment': 'Perfect anniversary gift! My wife loves them. Fast shipping and great packaging.',
+          'isVerified': false,
+          'avatar': 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop',
+          'createdAt': FieldValue.serverTimestamp(),
+        },
+      ];
+
+      for (var r in reviews) {
+        batch.set(productDoc.reference.collection('reviews').doc(), r);
+      }
+      await batch.commit();
+    }
   }
 }

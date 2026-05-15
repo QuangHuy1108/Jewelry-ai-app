@@ -63,7 +63,7 @@ class _SellerChatScreenState extends State<SellerChatScreen> {
       title: Row(
         children: [
           CircleAvatar(
-            backgroundImage: NetworkImage(widget.sellerAvatar),
+            backgroundImage: widget.sellerAvatar.isNotEmpty ? NetworkImage(widget.sellerAvatar) : null,
             radius: 18,
           ),
           const SizedBox(width: 10),

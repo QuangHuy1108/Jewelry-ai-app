@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'size_guide_bottom_sheet.dart';
+import '../../../core/theme/app_colors.dart';
 
 class SizeSelector extends StatelessWidget {
   final String selectedSize;
@@ -19,7 +20,15 @@ class SizeSelector extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('Select Size', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Text(
+              'Band Size', 
+              style: TextStyle(
+                fontSize: 17, // SF Pro body-strong token
+                fontWeight: FontWeight.w600,
+                color: AppColors.ink,
+                letterSpacing: -0.374,
+              ),
+            ),
             GestureDetector(
               onTap: () {
                 showModalBottomSheet(
@@ -35,28 +44,48 @@ class SizeSelector extends StatelessWidget {
                   ),
                 );
               },
-              child: const Text('Size Guide', style: TextStyle(decoration: TextDecoration.underline)),
+              child: const Text(
+                'Size Guide', 
+                style: TextStyle(
+                  color: AppColors.primary, // pure Action Blue text-link token
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                  letterSpacing: -0.224,
+                ),
+              ),
             )
           ],
         ),
         const SizedBox(height: 12),
         Wrap(
-          spacing: 12,
-          runSpacing: 12,
+          spacing: 10,
+          runSpacing: 10,
           children: ['5', '6', '7', '8', '9'].map((size) {
             final isSelected = selectedSize == size;
             return GestureDetector(
               onTap: () => onSizeSelected(size),
-              child: Container(
-                width: 50,
-                height: 50,
+              behavior: HitTestBehavior.opaque,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                width: 48, // generous finger touch target token
+                height: 48,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
-                  color: isSelected ? Colors.black : Colors.white,
-                  border: Border.all(color: isSelected ? Colors.black : Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(8),
+                  color: isSelected ? AppColors.ink : AppColors.canvas,
+                  border: Border.all(
+                    color: isSelected ? AppColors.ink : AppColors.hairline, 
+                    width: 1,
+                  ),
+                  borderRadius: BorderRadius.circular(9999), // full pill shape grammar
                 ),
-                child: Text(size, style: TextStyle(color: isSelected ? Colors.white : Colors.black, fontWeight: FontWeight.bold)),
+                child: Text(
+                  size, 
+                  style: TextStyle(
+                    color: isSelected ? AppColors.bodyOnDark : AppColors.ink, 
+                    fontSize: 15,
+                    fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                  ),
+                ),
               ),
             );
           }).toList(),

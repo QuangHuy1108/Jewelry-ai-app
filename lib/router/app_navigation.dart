@@ -5,12 +5,13 @@ import '../../features/product/screens/product_detail_screen.dart';
 class AppNavigation {
   /// Navigate to Product Detail screen from any screen.
   /// Always uses [Navigator.push] to preserve the back stack.
+  /// The [product] map is passed as route settings arguments.
   static void toProductDetail(BuildContext context, {Map<String, dynamic>? product}) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => const ProductDetailScreen(),
-        settings: const RouteSettings(name: '/product'),
+        settings: RouteSettings(name: '/product', arguments: product),
       ),
     );
   }

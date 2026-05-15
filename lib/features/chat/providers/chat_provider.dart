@@ -38,6 +38,17 @@ class ChatProvider extends ChangeNotifier {
 
   Map<String, dynamic>? getSellerProfile(String sellerId) => _sellerCache[sellerId];
 
+  /// Checks if the user is currently actively chatting with a given target ID.
+  bool isChatActiveWith(String targetId) {
+    if (_activeChatId == null) return false;
+    try {
+      final chat = _userChats.firstWhere((c) => c.id == _activeChatId);
+      return chat.sellerId == targetId || chat.userId == targetId;
+    } catch (_) {
+      return false;
+    }
+  }
+
   // ─── Init ───────────────────────────────────────────────────────────────────
 
   /// Start listening for user's chat list. Should be called when auth state changes.

@@ -4,6 +4,8 @@ import '../../filter/widgets/advanced_filter_bottom_sheet.dart';
 import '../../filter/widgets/sort_bottom_sheet.dart';
 import '../../../../router/app_navigation.dart';
 import '../../product/widgets/product_card.dart';
+import '../../../core/theme/product_grid_constants.dart';
+import 'package:jewelry_app/services/product_service.dart';
 
 class SearchResultsScreen extends StatefulWidget {
   final String initialQuery;
@@ -16,54 +18,23 @@ class SearchResultsScreen extends StatefulWidget {
 class _SearchResultsScreenState extends State<SearchResultsScreen> {
   late TextEditingController _searchController;
   bool isLoading = true;
-
-  final List<Map<String, dynamic>> products = [
-    {
-      "name": "Luxury Gold Bracelet",
-      "price": "\$1200",
-      "oldPrice": "\$1500",
-      "rating": "4.8",
-      "image": "https://i.postimg.cc/4yh339Lk/h7.jpg",
-    },
-    {
-      "name": "Silver Choker Bracelet",
-      "price": "\$450",
-      "oldPrice": "\$600",
-      "rating": "4.5",
-      "image": "https://i.postimg.cc/cHWq3842/h8.jpg",
-    },
-    {
-      "name": "Diamond Tennis Bracelet",
-      "price": "\$2500",
-      "oldPrice": "\$3200",
-      "rating": "5.0",
-      "image": "https://i.postimg.cc/zv06gtVy/h9.jpg",
-    },
-    {
-      "name": "Pearl Wristband",
-      "price": "\$890",
-      "oldPrice": "\$1000",
-      "rating": "4.2",
-      "image": "https://i.postimg.cc/pL94mBxp/h10.jpg",
-    },
-  ];
+  List<Map<String, dynamic>> products = [];
 
   List<Map<String, dynamic>> get _sortedProducts {
     final sortOption = FilterState().sort;
     final list = List<Map<String, dynamic>>.from(products);
 
     list.sort((a, b) {
-      double priceA = double.parse(a['price'].toString().replaceAll('\$', ''));
-      double priceB = double.parse(b['price'].toString().replaceAll('\$', ''));
-      double ratingA = double.parse(a['rating'].toString());
-      double ratingB = double.parse(b['rating'].toString());
+      double priceA = (a['price'] is num) ? (a['price'] as num).toDouble() : double.tryParse(a['price'].toString().replaceAll('\$', '')) ?? 0;
+      double priceB = (b['price'] is num) ? (b['price'] as num).toDouble() : double.tryParse(b['price'].toString().replaceAll('\$', '')) ?? 0;
+      double ratingA = (a['rating'] is num) ? (a['rating'] as num).toDouble() : double.tryParse(a['rating'].toString()) ?? 0;
+      double ratingB = (b['rating'] is num) ? (b['rating'] as num).toDouble() : double.tryParse(b['rating'].toString()) ?? 0;
 
       if (sortOption == "Price Low → High") {
         return priceA.compareTo(priceB);
       } else if (sortOption == "Price High → Low") {
         return priceB.compareTo(priceA);
       } else if (sortOption == "Newest") {
-        // Mock newest by comparing names to just show a different order
         return b['name'].toString().compareTo(a['name'].toString());
       }
       // Default: Popular (by rating)
@@ -77,15 +48,22 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   void initState() {
     super.initState();
     _searchController = TextEditingController(text: widget.initialQuery);
+    _performSearch(widget.initialQuery);
+  }
 
-    // Simulate loading delay
-    Future.delayed(const Duration(seconds: 2), () {
+  Future<void> _performSearch(String query) async {
+    setState(() => isLoading = true);
+    try {
+      final results = await ProductService().searchProducts(query);
       if (mounted) {
         setState(() {
+          products = results;
           isLoading = false;
         });
       }
-    });
+    } catch (_) {
+      if (mounted) setState(() => isLoading = false);
+    }
   }
 
   @override
@@ -302,12 +280,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                         contentPadding: EdgeInsets.zero,
                       ),
                       onSubmitted: (val) {
-                        setState(() {
-                          isLoading = true;
-                        });
-                        Future.delayed(const Duration(seconds: 1), () {
-                          if (mounted) setState(() => isLoading = false);
-                        });
+                        _performSearch(val);
                       },
                     ),
                   ),
@@ -368,12 +341,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: items.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: 0.75,
-      ),
+      gridDelegate: ProductGridConstants.gridDelegate,
       itemBuilder: (context, index) {
         final product = items[index];
         // Slide up and fade in animation per card
@@ -414,12 +382,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: 4,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: 0.75,
-      ),
+      gridDelegate: ProductGridConstants.gridDelegate,
       itemBuilder: (context, index) {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,

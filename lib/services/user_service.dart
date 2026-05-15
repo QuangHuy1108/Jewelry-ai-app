@@ -15,6 +15,7 @@ class UserService {
     required String name,
     required String phone,
     required String gender,
+    String? avatar,
   }) async {
     final user = _auth.currentUser;
     if (user == null) throw Exception('No user logged in');
@@ -23,12 +24,32 @@ class UserService {
       await user.updateDisplayName(name);
     }
 
-    await _firestore.collection('users').doc(user.uid).set({
+    final Map<String, dynamic> data = {
       'name': name,
       'phone': phone,
       'gender': gender,
       'email': user.email,
       'updatedAt': FieldValue.serverTimestamp(),
+    };
+
+    if (avatar != null) {
+      data['avatar'] = avatar;
+    }
+
+    await _firestore.collection('users').doc(user.uid).set(
+      data,
+      SetOptions(merge: true),
+    );
+  }
+
+  /// Update online status for the current user
+  Future<void> setOnlineStatus(bool isOnline) async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+
+    await _firestore.collection('users').doc(user.uid).set({
+      'isOnline': isOnline,
+      'lastSeen': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
 }

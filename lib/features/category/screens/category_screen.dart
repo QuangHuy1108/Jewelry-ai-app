@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:jewelry_app/services/product_service.dart';
 import '../../product/widgets/product_card.dart';
 import '../../../router/app_navigation.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/product_grid_constants.dart';
 
 class CategoryScreen extends StatefulWidget {
   final String categoryName;
@@ -17,7 +19,7 @@ class _CategoryScreenState extends State<CategoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFFFF),
+      backgroundColor: AppColors.canvasParchment,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -37,9 +39,9 @@ class _CategoryScreenState extends State<CategoryScreen> {
       height: 70,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: const BoxDecoration(
-        color: Color(0xFFFFFFFF),
+        color: AppColors.canvas,
         border: Border(
-          bottom: BorderSide(color: Color(0xFFF5F5F5), width: 1),
+          bottom: BorderSide(color: AppColors.hairline, width: 1),
         ),
       ),
       child: Row(
@@ -51,13 +53,13 @@ class _CategoryScreenState extends State<CategoryScreen> {
               }
             },
             child: Container(
-              width: 40,
-              height: 40,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFFEEEEEE)),
+                border: Border.all(color: AppColors.hairline),
               ),
-              child: const Icon(Icons.arrow_back, color: Color(0xFF333333), size: 20),
+              child: const Icon(Icons.arrow_back, color: AppColors.ink, size: 20),
             ),
           ),
           Expanded(
@@ -65,46 +67,35 @@ class _CategoryScreenState extends State<CategoryScreen> {
               child: Text(
                 widget.categoryName,
                 style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF333333),
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.ink,
+                  letterSpacing: -0.374,
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 40),
+          const SizedBox(width: 44),
         ],
       ),
     );
   }
 
   Widget _buildProductGrid() {
-    final bottomPadding = MediaQuery.paddingOf(context).bottom;
-    
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: ProductService().getProductsByCategoryStream(widget.categoryName),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: Color(0xFF333333)));
+          return const Center(child: CircularProgressIndicator(color: AppColors.ink));
         }
         final docs = snapshot.data?.docs ?? [];
         if (docs.isEmpty) {
-          return const Center(child: Text('No products in this category', style: TextStyle(color: Color(0xFF999999))));
+          return const Center(child: Text('No products in this category', style: TextStyle(color: AppColors.inkMuted48, letterSpacing: -0.224)));
         }
 
         return GridView.builder(
-          padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            top: 20,
-            bottom: 20 + bottomPadding,
-          ),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            childAspectRatio: 0.75,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-          ),
+          padding: ProductGridConstants.gridPaddingWithBottom(context),
+          gridDelegate: ProductGridConstants.gridDelegate,
           itemCount: docs.length,
           itemBuilder: (context, index) {
             final doc = docs[index];

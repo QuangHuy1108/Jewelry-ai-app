@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:jewelry_app/services/coupon_service.dart';
+import '../../../core/theme/app_colors.dart';
 
 class VoucherListWidget extends StatefulWidget {
   final double currentPrice;
@@ -55,12 +56,17 @@ class _VoucherListWidgetState extends State<VoucherListWidget> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Available Vouchers',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              'Exclusive Promotions',
+              style: TextStyle(
+                fontSize: 17, // SF Pro body-strong size token
+                fontWeight: FontWeight.w600, 
+                color: AppColors.ink,
+                letterSpacing: -0.374,
+              ),
             ),
             const SizedBox(height: 12),
             SizedBox(
-              height: 80,
+              height: 84, // well-proportioned container height token
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 itemCount: vouchers.length,
@@ -84,18 +90,21 @@ class _VoucherListWidgetState extends State<VoucherListWidget> {
                             });
                           }
                         : null,
+                    behavior: HitTestBehavior.opaque,
                     child: Opacity(
-                      opacity: isEligible ? 1.0 : 0.5,
-                      child: Container(
-                        width: 160,
+                      opacity: isEligible ? 1.0 : 0.4,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        width: 170, // proportional voucher cell width token
                         margin: const EdgeInsets.only(right: 12),
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: isSelected ? const Color(0xFF333333) : Colors.white,
+                          color: isSelected ? AppColors.ink : AppColors.canvas,
                           border: Border.all(
-                            color: isSelected ? const Color(0xFF333333) : Colors.grey.shade300,
+                            color: isSelected ? AppColors.ink : AppColors.hairline,
+                            width: 1,
                           ),
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(16), // museum/store container boundary rounded token
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -104,17 +113,22 @@ class _VoucherListWidgetState extends State<VoucherListWidget> {
                             Text(
                               voucher['discount'] ?? voucher['title'] ?? '',
                               style: TextStyle(
-                                color: isSelected ? Colors.white : const Color(0xFF333333),
-                                fontWeight: FontWeight.bold,
+                                color: isSelected ? AppColors.bodyOnDark : AppColors.ink,
+                                fontWeight: FontWeight.w600,
                                 fontSize: 14,
+                                letterSpacing: -0.15,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: 4),
                             Text(
                               voucher['condition'] ?? '',
                               style: TextStyle(
-                                color: isSelected ? Colors.white70 : Colors.grey.shade600,
-                                fontSize: 11,
+                                color: isSelected ? Colors.white70 : AppColors.inkMuted48,
+                                fontSize: 12,
+                                letterSpacing: -0.05,
+                                height: 1.2,
                               ),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,

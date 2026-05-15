@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../product/screens/product_detail_screen.dart';
+import 'package:jewelry_app/services/product_service.dart';
+import '../../../router/app_navigation.dart';
 
 class CameraScannerScreen extends StatefulWidget {
   const CameraScannerScreen({super.key});
@@ -236,77 +237,91 @@ class _CameraScannerScreenState extends State<CameraScannerScreen> with TickerPr
             child: Opacity(opacity: value, child: child),
           );
         },
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(15),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 70,
-                height: 70,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF5F5F5),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Image.network(
-                    "https://i.postimg.cc/pL94mBxp/h10.jpg",
-                    fit: BoxFit.cover,
+        child: FutureBuilder<List<Map<String, dynamic>>>(
+          future: ProductService().searchProducts(''),
+          builder: (context, snapshot) {
+            final product = (snapshot.data?.isNotEmpty == true)
+                ? snapshot.data!.first
+                : <String, dynamic>{
+                    'name': 'Scanning...',
+                    'category': '',
+                    'price': 0,
+                    'image': '',
+                  };
+            final imageUrl = product['image'] ?? '';
+            final name = product['name'] ?? 'Unknown';
+            final category = product['category'] ?? '';
+            final price = product['price'];
+
+            return Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 70,
+                    height: 70,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF5F5F5),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: imageUrl.isNotEmpty
+                          ? Image.network(imageUrl, fit: BoxFit.cover)
+                          : const Icon(Icons.diamond_outlined, color: Color(0xFF999999)),
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
-                      'Gold Necklace',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF333333),
-                      ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF333333),
+                          ),
+                        ),
+                        Text(
+                          category,
+                          style: const TextStyle(fontSize: 13, color: Color(0xFF999999)),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '\$${price is num ? price.toStringAsFixed(2) : price}',
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF333333),
+                          ),
+                        ),
+                      ],
                     ),
-                    Text(
-                      'Necklace',
-                      style: TextStyle(fontSize: 13, color: Color(0xFF999999)),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      '\$960.00',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF333333),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const ProductDetailScreen()),
-                  );
-                },
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFF5F5F5),
-                    shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.arrow_forward, color: Color(0xFF808080)),
-                ),
+                  GestureDetector(
+                    onTap: () {
+                      AppNavigation.toProductDetail(context, product: product);
+                    },
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF5F5F5),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.arrow_forward, color: Color(0xFF808080)),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );

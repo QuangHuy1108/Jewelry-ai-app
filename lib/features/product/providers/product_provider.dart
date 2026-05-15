@@ -1,37 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:jewelry_app/services/product_service.dart';
 
 class ProductProvider extends ChangeNotifier {
-  Map<String, dynamic> _product = {
-    "id": "pd1",
-    "name": "Gold Earring",
-    "category": "Earrings",
-    "basePrice": 1200.0,
-    "images": [
-      "https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4",
-      "https://i.postimg.cc/4yh339Lk/h7.jpg",
-      "https://i.postimg.cc/cHWq3842/h8.jpg",
-      "https://i.postimg.cc/zv06gtVy/h9.jpg",
-      "https://i.postimg.cc/pL94mBxp/h10.jpg",
-      "https://i.postimg.cc/43qyqfT2/h4.jpg",
-    ],
-    "stock": 10,
-    "rating": 4.8,
-    "reviews": 124,
-    "sellers": [
-      {
-        "id": "s1",
-        "name": "Jenny Doe",
-        "avatar": "https://i.pravatar.cc/150?u=jenny",
-        "rating": 4.9,
-      },
-      {
-        "id": "s2",
-        "name": "Marcus Stone",
-        "avatar": "https://i.pravatar.cc/150?u=marcus",
-        "rating": 4.7,
-      }
-    ],
-  };
+  Map<String, dynamic> _product = {};
 
   String _selectedMaterial = 'Gold';
   String _selectedPurity = '18 KT';
@@ -50,27 +21,26 @@ class ProductProvider extends ChangeNotifier {
 
   void initProduct(Map<String, dynamic> p) {
     _product = p;
-    // Ensure sellers array is present for demo
-    if (!_product.containsKey('sellers')) {
-      _product['sellers'] = [
-        {
-          "id": "s1",
-          "name": "Jenny Doe",
-          "avatar": "https://i.pravatar.cc/150?u=jenny",
-          "rating": 4.9,
-        },
-        {
-          "id": "s2",
-          "name": "Marcus Stone",
-          "avatar": "https://i.pravatar.cc/150?u=marcus",
-          "rating": 4.7,
-        }
-      ];
+    // Fetch sellers from Firestore if not already present
+    if (!_product.containsKey('sellers') || (_product['sellers'] as List?)?.isEmpty == true) {
+      _loadSellers();
     }
     _qty = 1;
     _selectedSize = '';
     _selectedVoucher = null;
     notifyListeners();
+  }
+
+  Future<void> _loadSellers() async {
+    try {
+      final sellers = await ProductService().getSellers();
+      if (sellers.isNotEmpty) {
+        _product['sellers'] = sellers;
+        notifyListeners();
+      }
+    } catch (_) {
+      // Silently handle — sellers section will just be hidden
+    }
   }
 
   void setMaterial(String v) { _selectedMaterial = v; notifyListeners(); }

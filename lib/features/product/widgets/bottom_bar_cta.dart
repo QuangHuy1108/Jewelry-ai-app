@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../cart/providers/cart_provider.dart';
 import '../providers/product_provider.dart';
+import '../../../shared/widgets/custom_button.dart';
+import '../../../core/theme/app_colors.dart';
 
 class BottomBarCTA extends StatelessWidget {
   const BottomBarCTA({super.key});
@@ -14,9 +16,10 @@ class BottomBarCTA extends StatelessWidget {
         left: 20, right: 20, top: 16,
         bottom: MediaQuery.of(context).padding.bottom + 16,
       ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, -4))],
+      decoration: BoxDecoration(
+        color: AppColors.canvasParchment, // clean signature background base for bottom CTA bar
+        border: Border(top: BorderSide(color: Colors.black.withOpacity(0.05), width: 1)),
+        // single shadow rule enforcement: zero legacy container elevation
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -43,19 +46,50 @@ class BottomBarCTA extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('Total Price', style: TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.normal)),
+                const Text(
+                  'Total Due', 
+                  style: TextStyle(
+                    color: AppColors.inkMuted48, 
+                    fontSize: 13, 
+                    fontWeight: FontWeight.w400,
+                    letterSpacing: -0.08,
+                  ),
+                ),
                 if (discount > 0)
                   Row(
                     children: [
-                      Text('\$${before.toStringAsFixed(2)}', style: const TextStyle(decoration: TextDecoration.lineThrough, color: Colors.grey, fontSize: 14)),
+                      Text(
+                        '\$${before.toStringAsFixed(2)}', 
+                        style: const TextStyle(
+                          decoration: TextDecoration.lineThrough, 
+                          color: AppColors.inkMuted48, 
+                          fontSize: 14,
+                        ),
+                      ),
                       const SizedBox(width: 8),
-                      Text('-\$${discount.toStringAsFixed(2)}', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w600, fontSize: 14)),
+                      Text(
+                        '-\$${discount.toStringAsFixed(2)}', 
+                        style: const TextStyle(
+                          color: Color(0xFF34C759), // pure Apple success system color
+                          fontWeight: FontWeight.w600, 
+                          fontSize: 14,
+                        ),
+                      ),
                     ],
                   ),
               ],
             ),
             const Spacer(),
-            Text('\$${finalPrice.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 26, color: Color(0xFF333333))),
+            Text(
+              '\$${finalPrice.toStringAsFixed(2)}', 
+              style: const TextStyle(
+                fontWeight: FontWeight.w600, 
+                fontSize: 28, // SF Pro display size token
+                color: AppColors.ink,
+                letterSpacing: 0.196, // precise Apple display letter-spacing formula
+                height: 1.0,
+              ),
+            ),
           ],
         );
       },
@@ -71,29 +105,22 @@ class BottomBarCTA extends StatelessWidget {
         return Row(
           children: [
             Expanded(
-              child: OutlinedButton(
-                onPressed: isOutOfStock ? null : () => _handleAddToCart(context, provider),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Color(0xFF333333)),
-                  foregroundColor: const Color(0xFF333333),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                ),
-                child: const Text('Add to Cart', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              child: CustomButton(
+                text: 'Add to Bag',
+                variant: ButtonVariant.secondaryPill,
+                isExpanded: true,
+                isDisabled: isOutOfStock,
+                onPressed: () => _handleAddToCart(context, provider),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: ElevatedButton(
-                onPressed: isOutOfStock ? null : () => _handleBuyNow(context, provider),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: isOutOfStock ? Colors.grey : const Color(0xFF333333),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                  elevation: 0,
-                ),
-                child: Text(isOutOfStock ? 'Out of Stock' : 'Buy Now', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              child: CustomButton(
+                text: isOutOfStock ? 'Sold Out' : 'Checkout',
+                variant: ButtonVariant.primaryPill,
+                isExpanded: true,
+                isDisabled: isOutOfStock,
+                onPressed: () => _handleBuyNow(context, provider),
               ),
             ),
           ],
@@ -131,6 +158,6 @@ class BottomBarCTA extends StatelessWidget {
       LuxuryToast.show(context, message: 'Please select all required options (Size, Material, Purity).');
       return;
     }
-    LuxuryToast.show(context, message: 'Proceeding to Checkout...');
+    LuxuryToast.show(context, message: 'Proceeding to Secure Checkout...');
   }
 }

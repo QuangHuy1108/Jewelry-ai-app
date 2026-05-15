@@ -4,6 +4,8 @@ import 'package:shimmer/shimmer.dart';
 import 'package:jewelry_app/services/product_service.dart';
 import '../widgets/product_card.dart';
 import '../../../router/app_navigation.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/product_grid_constants.dart';
 
 class PopularProductsScreen extends StatefulWidget {
   const PopularProductsScreen({super.key});
@@ -17,7 +19,7 @@ class _PopularProductsScreenState extends State<PopularProductsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFFFF),
+      backgroundColor: AppColors.canvasParchment,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -47,9 +49,9 @@ class _PopularProductsScreenState extends State<PopularProductsScreen> {
       height: 70,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: const BoxDecoration(
-        color: Color(0xFFFFFFFF),
+        color: AppColors.canvas,
         border: Border(
-          bottom: BorderSide(color: Color(0xFFF5F5F5), width: 1),
+          bottom: BorderSide(color: AppColors.hairline, width: 1),
         ),
       ),
       child: Row(
@@ -57,13 +59,13 @@ class _PopularProductsScreenState extends State<PopularProductsScreen> {
           GestureDetector(
             onTap: () => Navigator.pop(context),
             child: Container(
-              width: 40,
-              height: 40,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFFEEEEEE)),
+                border: Border.all(color: AppColors.hairline),
               ),
-              child: const Icon(Icons.arrow_back, color: Color(0xFF333333), size: 20),
+              child: const Icon(Icons.arrow_back, color: AppColors.ink, size: 20),
             ),
           ),
           const Expanded(
@@ -71,14 +73,15 @@ class _PopularProductsScreenState extends State<PopularProductsScreen> {
               child: Text(
                 'Popular Products',
                 style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF333333),
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.ink,
+                  letterSpacing: -0.374,
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 40),
+          const SizedBox(width: 44),
         ],
       ),
     );
@@ -86,13 +89,8 @@ class _PopularProductsScreenState extends State<PopularProductsScreen> {
 
   Widget _buildLoadingList() {
     return GridView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.75,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-      ),
+      padding: ProductGridConstants.gridPadding,
+      gridDelegate: ProductGridConstants.gridDelegate,
       itemCount: 6,
       itemBuilder: (context, index) => const ShimmerPopularProductItem(),
     );
@@ -105,32 +103,32 @@ class _PopularProductsScreenState extends State<PopularProductsScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.layers_clear_outlined, size: 80, color: Color(0xFFEEEEEE)),
+            const Icon(Icons.layers_clear_outlined, size: 80, color: AppColors.hairline),
             const SizedBox(height: 16),
             const Text(
               'Empty List',
               style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF333333),
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                color: AppColors.ink,
+                letterSpacing: -0.374,
               ),
             ),
             const SizedBox(height: 12),
             const Text(
               'Try browsing our categories to find products.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: Color(0xFF999999)),
+              style: TextStyle(fontSize: 14, color: AppColors.inkMuted48, letterSpacing: -0.224),
             ),
             const SizedBox(height: 24),
             ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context); 
-              },
+              onPressed: () => Navigator.pop(context),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF333333),
-                foregroundColor: Colors.white,
+                backgroundColor: AppColors.ink,
+                foregroundColor: AppColors.bodyOnDark,
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
+                elevation: 0,
               ),
               child: const Text('Browse Categories'),
             ),
@@ -141,21 +139,9 @@ class _PopularProductsScreenState extends State<PopularProductsScreen> {
   }
 
   Widget _buildPopularList(List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) {
-    final bottomPadding = MediaQuery.paddingOf(context).bottom;
-    
     return GridView.builder(
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 20,
-        bottom: 20 + bottomPadding,
-      ),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.75,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-      ),
+      padding: ProductGridConstants.gridPaddingWithBottom(context),
+      gridDelegate: ProductGridConstants.gridDelegate,
       itemCount: docs.length,
       itemBuilder: (context, index) {
         final doc = docs[index];

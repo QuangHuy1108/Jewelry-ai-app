@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ProductReviewScreen extends StatefulWidget {
   const ProductReviewScreen({super.key});
@@ -12,32 +13,9 @@ class _ProductReviewScreenState extends State<ProductReviewScreen> with TickerPr
   String _selectedFilter = 'All';
   final List<String> _filters = ['All', 'Verified', 'Latest', 'Detailed Reviews'];
 
-  final List<Map<String, dynamic>> _reviews = [
-    {
-      "name": "Alex Johnson",
-      "date": "2 days ago",
-      "rating": 5.0,
-      "comment": "Absolutely stunning! The gold quality is top-notch and the design is even better in person. Highly recommend for any gift.",
-      "isVerified": true,
-      "avatar": "https://i.pravatar.cc/150?u=alex"
-    },
-    {
-      "name": "Maria Garcia",
-      "date": "1 week ago",
-      "rating": 4.0,
-      "comment": "Very beautiful earrings. They are a bit smaller than I expected based on the photos, but the craftsmanship is excellent.",
-      "isVerified": true,
-      "avatar": "https://i.pravatar.cc/150?u=maria"
-    },
-    {
-      "name": "James Smith",
-      "date": "2 weeks ago",
-      "rating": 5.0,
-      "comment": "Perfect anniversary gift! My wife loves them. Fast shipping and great packaging.",
-      "isVerified": false,
-      "avatar": "https://i.pravatar.cc/150?u=james"
-    },
-  ];
+  List<Map<String, dynamic>> _reviews = [];
+  bool _isLoadingReviews = true;
+  String _productId = '';
 
   late AnimationController _barController;
   late Animation<double> _barAnimation;
@@ -48,7 +26,95 @@ class _ProductReviewScreenState extends State<ProductReviewScreen> with TickerPr
     _barController = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 1000));
     _barAnimation = CurvedAnimation(parent: _barController, curve: Curves.easeOut);
-    _barController.forward();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Try to get productId from route arguments
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is String && args.isNotEmpty) {
+      _productId = args;
+    } else if (args is Map<String, dynamic>) {
+      _productId = args['productId']?.toString() ?? '';
+    }
+    if (_productId.isNotEmpty && _isLoadingReviews) {
+      _loadReviews();
+    } else if (_productId.isEmpty && _isLoadingReviews) {
+      // Fallback: load reviews from the first available product
+      _loadFallbackReviews();
+    }
+  }
+
+  Future<void> _loadReviews() async {
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('products')
+          .doc(_productId)
+          .collection('reviews')
+          .orderBy('createdAt', descending: true)
+          .get();
+      if (mounted) {
+        setState(() {
+          _reviews = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+          _isLoadingReviews = false;
+        });
+        _barController.forward();
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingReviews = false);
+      _barController.forward();
+    }
+  }
+
+  Future<void> _loadFallbackReviews() async {
+    try {
+      // Find any product that has reviews
+      final productsSnap = await FirebaseFirestore.instance
+          .collection('products')
+          .limit(5)
+          .get();
+      for (final doc in productsSnap.docs) {
+        final reviewsSnap = await doc.reference
+            .collection('reviews')
+            .orderBy('createdAt', descending: true)
+            .get();
+        if (reviewsSnap.docs.isNotEmpty) {
+          _productId = doc.id;
+          if (mounted) {
+            setState(() {
+              _reviews = reviewsSnap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+              _isLoadingReviews = false;
+            });
+            _barController.forward();
+            return;
+          }
+        }
+      }
+      if (mounted) {
+        setState(() => _isLoadingReviews = false);
+        _barController.forward();
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingReviews = false);
+      _barController.forward();
+    }
+  }
+
+  double get _averageRating {
+    if (_reviews.isEmpty) return 0.0;
+    final total = _reviews.fold<double>(0, (acc, r) => acc + ((r['rating'] as num?)?.toDouble() ?? 0));
+    return total / _reviews.length;
+  }
+
+  Map<int, double> get _ratingDistribution {
+    if (_reviews.isEmpty) return {5: 0, 4: 0, 3: 0, 2: 0, 1: 0};
+    final dist = <int, int>{5: 0, 4: 0, 3: 0, 2: 0, 1: 0};
+    for (final r in _reviews) {
+      final rating = ((r['rating'] as num?)?.toDouble() ?? 0).round().clamp(1, 5);
+      dist[rating] = (dist[rating] ?? 0) + 1;
+    }
+    return dist.map((k, v) => MapEntry(k, v / _reviews.length));
   }
 
   @override
@@ -117,25 +183,30 @@ class _ProductReviewScreenState extends State<ProductReviewScreen> with TickerPr
   }
 
   Widget _buildRatingSummary() {
+    final distribution = _ratingDistribution;
     return Row(
       children: [
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              '4.9',
-              style: TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Color(0xFF333333)),
+            Text(
+              _averageRating.toStringAsFixed(1),
+              style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: Color(0xFF333333)),
             ),
             Row(
               children: List.generate(
                 5,
-                (index) => const Icon(Icons.star, color: Color(0xFFFFD700), size: 20),
+                (index) => Icon(
+                  Icons.star,
+                  color: index < _averageRating.round() ? const Color(0xFFFFD700) : const Color(0xFFE0E0E0),
+                  size: 20,
+                ),
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
-              '124 Reviews',
-              style: TextStyle(color: Color(0xFF999999), fontSize: 14),
+            Text(
+              '${_reviews.length} Reviews',
+              style: const TextStyle(color: Color(0xFF999999), fontSize: 14),
             ),
           ],
         ),
@@ -143,11 +214,11 @@ class _ProductReviewScreenState extends State<ProductReviewScreen> with TickerPr
         Expanded(
           child: Column(
             children: [
-              _buildRatingBar(5, 0.8),
-              _buildRatingBar(4, 0.15),
-              _buildRatingBar(3, 0.03),
-              _buildRatingBar(2, 0.01),
-              _buildRatingBar(1, 0.01),
+              _buildRatingBar(5, distribution[5] ?? 0),
+              _buildRatingBar(4, distribution[4] ?? 0),
+              _buildRatingBar(3, distribution[3] ?? 0),
+              _buildRatingBar(2, distribution[2] ?? 0),
+              _buildRatingBar(1, distribution[1] ?? 0),
             ],
           ),
         ),
@@ -295,7 +366,7 @@ class _ProductReviewScreenState extends State<ProductReviewScreen> with TickerPr
               children: [
                 CircleAvatar(
                   radius: 22,
-                  backgroundImage: NetworkImage(review['avatar']),
+                  backgroundImage: (review['avatar'] as String).isNotEmpty ? NetworkImage(review['avatar']) : null,
                 ),
                 if (review['isVerified'])
                   Positioned(

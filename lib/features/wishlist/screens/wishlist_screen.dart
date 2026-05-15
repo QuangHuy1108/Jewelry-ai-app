@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/wishlist_provider.dart';
 import '../../home/widgets/bottom_nav.dart';
 import '../../product/widgets/product_card.dart';
+import '../../../core/theme/product_grid_constants.dart';
 
 class WishlistScreen extends StatefulWidget {
   const WishlistScreen({super.key});
@@ -183,12 +184,7 @@ class _WishlistScreenState extends State<WishlistScreen> {
   ) {
     return GridView.builder(
       padding: const EdgeInsets.only(left: 16, right: 16, bottom: 20),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.75,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-      ),
+      gridDelegate: ProductGridConstants.gridDelegate,
       itemCount: items.length,
       itemBuilder: (context, index) {
         final item = items[index];

@@ -44,6 +44,9 @@ import '../features/profile/screens/notification_settings_screen.dart';
 import '../features/profile/screens/delete_account_screen.dart';
 import '../features/profile/screens/help_center_screen.dart';
 import '../features/profile/screens/privacy_policy_screen.dart';
+import '../features/seller/screens/seller_dashboard_screen.dart';
+import '../features/seller/screens/become_seller_screen.dart';
+import '../features/seller/screens/seller_application_status_screen.dart';
 
 class AppRouter {
   static final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -94,6 +97,9 @@ class AppRouter {
   static const deleteAccount = '/delete-account';
   static const helpCenter = '/help-center';
   static const privacyPolicy = '/privacy-policy';
+  static const sellerDashboard = '/seller-dashboard';
+  static const becomeSeller = '/become-seller';
+  static const sellerApplicationStatus = '/seller-application-status';
 
   static Map<String, WidgetBuilder> routes = {
     splash: (_) => const SplashScreen(),
@@ -147,5 +153,8 @@ class AppRouter {
     deleteAccount: (_) => const DeleteAccountScreen(),
     helpCenter: (_) => const HelpCenterScreen(),
     privacyPolicy: (_) => const PrivacyPolicyScreen(),
+    sellerDashboard: (_) => const SellerDashboardScreen(),
+    becomeSeller: (_) => const BecomeSellerScreen(),
+    sellerApplicationStatus: (_) => const SellerApplicationStatusScreen(),
   };
 }

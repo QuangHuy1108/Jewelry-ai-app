@@ -8,6 +8,11 @@ import 'suggestion_dropdown.dart';
 import '../../../router/app_router.dart';
 import 'package:provider/provider.dart';
 import '../../notification/providers/notification_provider.dart';
+import '../../../core/theme/app_colors.dart';
+import 'package:jewelry_app/services/product_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 
 class HomeHeader extends StatefulWidget {
   const HomeHeader({super.key});
@@ -24,24 +29,14 @@ class _HomeHeaderState extends State<HomeHeader> {
   Timer? _debounce;
   List<String> _suggestions = [];
   OverlayEntry? _overlayEntry;
-
-  final List<String> _mockData = [
-    "Diamond Ring",
-    "Diamond Necklace",
-    "Diamond Earrings",
-    "Gold Ring",
-    "Gold Necklace",
-    "Gold Bracelet",
-    "Silver Ring",
-    "Silver Bracelet",
-    "Ruby Pendant",
-    "Sapphire Ring",
-    "Pearl Necklace",
-  ];
+  List<String> _allProductNames = [];
+  String _currentLocation = 'Loading...';
 
   @override
   void initState() {
     super.initState();
+    _loadProductNames();
+    _loadSavedLocation();
     _focusNode.addListener(() {
       if (!_focusNode.hasFocus) {
         // Delay hiding so taps on dropdown can register
@@ -52,6 +47,63 @@ class _HomeHeaderState extends State<HomeHeader> {
         _showOverlay();
       }
     });
+  }
+
+  Future<void> _loadProductNames() async {
+    try {
+      final products = await ProductService().getAllProductNames();
+      if (mounted) {
+        setState(() {
+          _allProductNames = products.map((p) => p['name'].toString()).toSet().toList();
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadSavedLocation() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString('userLocation');
+    if (saved != null && saved.isNotEmpty && mounted) {
+      setState(() => _currentLocation = saved);
+    } else {
+      // No saved location, try fetching current
+      _refreshCurrentLocation();
+    }
+  }
+
+  Future<void> _refreshCurrentLocation() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) return;
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) return;
+      }
+      if (permission == LocationPermission.deniedForever) return;
+
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      List<Placemark> placemarks = await placemarkFromCoordinates(
+        position.latitude, position.longitude,
+      );
+
+      if (placemarks.isNotEmpty) {
+        Placemark place = placemarks[0];
+        String address = "${place.subAdministrativeArea ?? ''}, ${place.administrativeArea ?? ''}"
+            .replaceAll(RegExp(r'^, |, $'), '');
+        if (address.isEmpty) address = place.country ?? 'Unknown';
+
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('userLocation', address);
+
+        if (mounted) setState(() => _currentLocation = address);
+      }
+    } catch (e) {
+      debugPrint('Location refresh failed: $e');
+    }
   }
 
   @override
@@ -139,7 +191,7 @@ class _HomeHeaderState extends State<HomeHeader> {
 
     _debounce = Timer(const Duration(milliseconds: 300), () {
       setState(() {
-        _suggestions = _mockData
+        _suggestions = _allProductNames
             .where((item) => item.toLowerCase().contains(query.toLowerCase()))
             .take(3)
             .toList();
@@ -174,10 +226,9 @@ class _HomeHeaderState extends State<HomeHeader> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       decoration: const BoxDecoration(
-        color: Color(0xFF2C2C2C), // Dark Grey/Charcoal
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(30)),
+        color: AppColors.surfaceBlack, // strict true void token
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -189,36 +240,32 @@ class _HomeHeaderState extends State<HomeHeader> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    "Location",
-                    style: TextStyle(color: Colors.white70, fontSize: 12),
+                    "Storefront Feed",
+                    style: TextStyle(
+                      color: AppColors.bodyMuted, 
+                      fontSize: 12, 
+                      letterSpacing: -0.12
+                    ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   GestureDetector(
-                    onTap: () {
-                      showModalBottomSheet(
-                        context: context,
-                        builder: (context) => const SizedBox(
-                          height: 200,
-                          child: Center(
-                            child: Text("Location Selection (Bottom Sheet)"),
-                          ),
-                        ),
-                      );
-                    },
+                    onTap: _refreshCurrentLocation,
                     child: Row(
-                      children: const [
+                      children: [
                         Text(
-                          "New York, USA",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                          _currentLocation,
+                          style: const TextStyle(
+                            color: AppColors.bodyOnDark,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.374,
                           ),
                         ),
-                        Icon(
+                        const SizedBox(width: 4),
+                        const Icon(
                           Icons.keyboard_arrow_down,
-                          color: Colors.white,
-                          size: 20,
+                          color: AppColors.bodyOnDark,
+                          size: 16,
                         ),
                       ],
                     ),
@@ -227,25 +274,39 @@ class _HomeHeaderState extends State<HomeHeader> {
               ),
               Row(
                 children: [
-                  ElevatedButton.icon(
-                    onPressed: () => Navigator.pushNamed(context, '/ai-scan'),
-                    icon: const Icon(Icons.auto_awesome, size: 16),
-                    label: const Text('AI Scan'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.black,
-                      minimumSize: const Size(0, 36),
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                  GestureDetector(
+                    onTap: () => Navigator.pushNamed(context, '/ai-scan'),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceTile1,
+                        borderRadius: BorderRadius.circular(9999),
+                        border: Border.all(color: AppColors.primaryOnDark.withOpacity(0.3), width: 1),
+                      ),
+                      child: Row(
+                        children: const [
+                          Icon(Icons.auto_awesome, color: AppColors.primaryOnDark, size: 14),
+                          SizedBox(width: 4),
+                          Text(
+                            "AI Scan",
+                            style: TextStyle(
+                              color: AppColors.primaryOnDark,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: -0.12,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 16),
                   _buildHeaderIcon(Icons.notifications_none, () => Navigator.pushNamed(context, AppRouter.notification)),
                 ],
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
 
           // 🔍 Search bar & Filter
           Row(
@@ -272,13 +333,13 @@ class _HomeHeaderState extends State<HomeHeader> {
                   );
                 },
                 child: Container(
-                  height: 45, // Match search bar height
-                  width: 45,
+                  height: 44, // Match search input token height
+                  width: 44,
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
+                    color: AppColors.surfaceTile1,
+                    borderRadius: BorderRadius.circular(9999), // full pill matching
                   ),
-                  child: const Icon(Icons.tune, color: Colors.black87),
+                  child: const Icon(Icons.tune, color: AppColors.bodyOnDark, size: 16),
                 ),
               ),
             ],
@@ -296,8 +357,8 @@ class _HomeHeaderState extends State<HomeHeader> {
         children: [
           Icon(
             icon,
-            color: Colors.white,
-            size: 28,
+            color: AppColors.bodyOnDark,
+            size: 24,
           ),
           Consumer<NotificationProvider>(
             builder: (context, provider, child) {
@@ -308,12 +369,12 @@ class _HomeHeaderState extends State<HomeHeader> {
                 child: Container(
                   padding: const EdgeInsets.all(4),
                   decoration: const BoxDecoration(
-                    color: Color(0xFFE53935), // Red badge
+                    color: AppColors.primary, // Brand action indicator
                     shape: BoxShape.circle,
                   ),
                   child: Text(
                     '${provider.unreadCount}',
-                    style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                    style: const TextStyle(color: AppColors.bodyOnDark, fontSize: 10, fontWeight: FontWeight.bold),
                   ),
                 ),
               );

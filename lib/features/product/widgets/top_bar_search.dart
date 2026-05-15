@@ -4,7 +4,8 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../wishlist/providers/wishlist_provider.dart';
 import '../../../shared/widgets/cart_badge_icon.dart';
-import '../../../../router/app_navigation.dart';
+import '../../../core/theme/app_colors.dart';
+import 'package:jewelry_app/services/product_service.dart';
 
 class TopBarWithSearch extends StatefulWidget {
   final Map<String, dynamic> product;
@@ -22,16 +23,12 @@ class _TopBarWithSearchState extends State<TopBarWithSearch> {
   OverlayEntry? _overlayEntry;
   Timer? _debounce;
   List<String> _suggestions = [];
-
-  final List<String> _allMockTags = [
-    "Gold Bracelet", "Silver Ring", "Diamond Necklace", "Pearl Earring",
-    "Platinum Chain", "Choker", "Tennis Bracelet", "Sapphire Ring",
-    "Emerald Pendant"
-  ];
+  List<String> _allProductTags = [];
 
   @override
   void initState() {
     super.initState();
+    _loadProductTags();
     _focusNode.addListener(() {
       if (_focusNode.hasFocus) {
         _showOverlay();
@@ -39,6 +36,17 @@ class _TopBarWithSearchState extends State<TopBarWithSearch> {
         _hideOverlay();
       }
     });
+  }
+
+  Future<void> _loadProductTags() async {
+    try {
+      final products = await ProductService().getAllProductNames();
+      if (mounted) {
+        setState(() {
+          _allProductTags = products.map((p) => p['name'].toString()).toSet().toList();
+        });
+      }
+    } catch (_) {}
   }
 
   @override
@@ -57,7 +65,7 @@ class _TopBarWithSearchState extends State<TopBarWithSearch> {
         setState(() => _suggestions = []);
       } else {
         final lowerQuery = query.toLowerCase();
-        final matches = _allMockTags
+        final matches = _allProductTags
             .where((tag) => tag.toLowerCase().contains(lowerQuery))
             .take(3)
             .toList();
@@ -84,30 +92,34 @@ class _TopBarWithSearchState extends State<TopBarWithSearch> {
         if (_suggestions.isEmpty && _searchController.text.isEmpty) return const SizedBox.shrink();
 
         return Positioned(
-          width: renderBox.size.width - 120, // Approximate width of the search container
+          width: renderBox.size.width - 120,
           child: CompositedTransformFollower(
             link: _layerLink,
             showWhenUnlinked: false,
-            offset: const Offset(0, 48), // Push it exactly below the bar
+            offset: const Offset(0, 48),
             child: Material(
-              elevation: 8,
+              elevation: 0,
               borderRadius: BorderRadius.circular(16),
-              color: Colors.white,
+              color: AppColors.canvas,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: const BorderSide(color: AppColors.hairline, width: 1),
+              ),
               child: Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
-                  color: Colors.white,
+                  color: AppColors.canvas,
                 ),
                 child: ListView.separated(
                   padding: EdgeInsets.zero,
                   shrinkWrap: true,
                   itemCount: _suggestions.isEmpty ? 1 : _suggestions.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  separatorBuilder: (_, __) => const Divider(height: 1, color: AppColors.hairline),
                   itemBuilder: (context, index) {
                     if (_suggestions.isEmpty) {
                       return const Padding(
                         padding: EdgeInsets.all(12),
-                        child: Text("No suggestions", style: TextStyle(color: Colors.grey)),
+                        child: Text("No suggestions", style: TextStyle(color: AppColors.inkMuted48)),
                       );
                     }
                     final suggestion = _suggestions[index];
@@ -119,9 +131,9 @@ class _TopBarWithSearchState extends State<TopBarWithSearch> {
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                         child: Row(
                           children: [
-                            const Icon(Icons.search, size: 16, color: Colors.grey),
+                            const Icon(Icons.search, size: 16, color: AppColors.inkMuted48),
                             const SizedBox(width: 8),
-                            Expanded(child: Text(suggestion, style: const TextStyle(fontSize: 14))),
+                            Expanded(child: Text(suggestion, style: const TextStyle(fontSize: 14, color: AppColors.ink))),
                           ],
                         ),
                       ),
@@ -160,14 +172,13 @@ class _TopBarWithSearchState extends State<TopBarWithSearch> {
               child: CompositedTransformTarget(
                 link: _layerLink,
                 child: Container(
-                  height: 40,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  height: 44, // standard 44px pill token height
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(30),
-                    boxShadow: [
-                      BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 2))
-                    ]
+                    color: AppColors.canvas,
+                    borderRadius: BorderRadius.circular(9999), // round.pill
+                    border: Border.all(color: AppColors.hairline, width: 1), // flat hairline outline
+                    // strict enforcement of single shadow rule
                   ),
                   child: Row(
                     children: [
@@ -179,9 +190,9 @@ class _TopBarWithSearchState extends State<TopBarWithSearch> {
                             _submitSearch("");
                           }
                         },
-                        child: Icon(Icons.search, color: Colors.grey.shade600, size: 18),
+                        child: const Icon(Icons.search, color: AppColors.ink, size: 18),
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: TextField(
                           controller: _searchController,
@@ -189,14 +200,22 @@ class _TopBarWithSearchState extends State<TopBarWithSearch> {
                           onChanged: _onSearchChanged,
                           onSubmitted: _submitSearch,
                           textInputAction: TextInputAction.search,
-                          decoration: InputDecoration(
-                            hintText: 'Search...',
-                            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                          decoration: const InputDecoration(
+                            hintText: 'Search collection...',
+                            hintStyle: TextStyle(
+                              color: AppColors.inkMuted48, 
+                              fontSize: 14, // SF Pro body alignment
+                              letterSpacing: -0.224,
+                            ),
                             border: InputBorder.none,
                             isDense: true,
                             contentPadding: EdgeInsets.zero,
                           ),
-                          style: const TextStyle(fontSize: 13),
+                          style: const TextStyle(
+                            color: AppColors.ink, 
+                            fontSize: 14,
+                            letterSpacing: -0.224,
+                          ),
                         ),
                       ),
                     ],
@@ -207,7 +226,7 @@ class _TopBarWithSearchState extends State<TopBarWithSearch> {
             const SizedBox(width: 8),
             _buildCircularButton(
               icon: isFavorite ? Icons.favorite : Icons.favorite_border,
-              iconColor: isFavorite ? Colors.red : Colors.black,
+              iconColor: isFavorite ? const Color(0xFFE53935) : AppColors.ink,
               onTap: () => context.read<WishlistProvider>().toggleWishlist(widget.product),
             ),
             const SizedBox(width: 6),
@@ -217,7 +236,7 @@ class _TopBarWithSearchState extends State<TopBarWithSearch> {
             ),
             const SizedBox(width: 6),
             _buildCircularButtonWidget(
-              child: const CartIconWithBadge(iconData: Icons.shopping_bag_outlined, iconColor: Colors.black, size: 20),
+              child: const CartIconWithBadge(iconData: Icons.shopping_bag_outlined, iconColor: AppColors.ink, size: 20),
               onTap: () => Navigator.pushNamed(context, '/cart'),
             ),
           ],
@@ -226,7 +245,7 @@ class _TopBarWithSearchState extends State<TopBarWithSearch> {
     );
   }
 
-  Widget _buildCircularButton({required IconData icon, required VoidCallback onTap, Color iconColor = Colors.black}) {
+  Widget _buildCircularButton({required IconData icon, required VoidCallback onTap, Color iconColor = AppColors.ink}) {
     return _buildCircularButtonWidget(
       onTap: onTap,
       child: Icon(icon, color: iconColor, size: 20),
@@ -236,15 +255,14 @@ class _TopBarWithSearchState extends State<TopBarWithSearch> {
   Widget _buildCircularButtonWidget({required Widget child, required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
+      behavior: HitTestBehavior.opaque,
       child: Container(
-        width: 36,
-        height: 36,
+        width: 44, // standard touch target circular float button size token
+        height: 44,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.canvas,
           shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, 2)),
-          ],
+          border: Border.all(color: AppColors.hairline, width: 1), // flat profile
         ),
         alignment: Alignment.center,
         child: child,

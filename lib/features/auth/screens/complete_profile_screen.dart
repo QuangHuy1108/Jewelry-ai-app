@@ -1,12 +1,14 @@
 import 'package:jewelry_app/core/utils/luxury_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:io'; // Thêm thư viện này để đọc File ảnh
-import 'package:image_picker/image_picker.dart'; // Thư viện chọn ảnh
-import 'package:country_picker/country_picker.dart'; // Thư viện chọn mã vùng có thanh tìm kiếm
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:country_picker/country_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../router/app_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 class CompleteProfileScreen extends StatefulWidget {
   const CompleteProfileScreen({Key? key}) : super(key: key);
@@ -23,10 +25,10 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   String _selectedCountryCode = "+1";
   String? _selectedGender;
   bool _isLoading = false;
-  File? _imageFile; // Biến lưu trữ ảnh đại diện đã chọn
+  File? _imageFile;
 
   final List<String> _genders = ['Male', 'Female', 'Other', 'Prefer not to say'];
-  final ImagePicker _picker = ImagePicker(); // Khởi tạo ImagePicker
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void dispose() {
@@ -35,33 +37,32 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     super.dispose();
   }
 
-  // LOGIC: Xử lý chọn ảnh từ Camera hoặc Gallery
+  // LOGIC: Pick image from Camera or Gallery
   Future<void> _pickImage(ImageSource source) async {
-    Navigator.pop(context); // Đóng BottomSheet trước
+    Navigator.pop(context); // Close BottomSheet first
     try {
       final XFile? pickedFile = await _picker.pickImage(
         source: source,
-        maxWidth: 800, // Nén ảnh nhẹ bớt
+        maxWidth: 800,
         maxHeight: 800,
         imageQuality: 85,
       );
       if (pickedFile != null) {
         setState(() {
-          _imageFile = File(pickedFile.path); // Lưu file ảnh vào biến
+          _imageFile = File(pickedFile.path);
         });
       }
     } catch (e) {
-      debugPrint("Lỗi khi chọn ảnh: $e");
+      debugPrint("Error picking image: $e");
     }
   }
 
-  // LOGIC: Xử lý Submit Form
+  // LOGIC: Submit Profile Form
   Future<void> _submitProfile() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
 
-      // Ghép mã vùng và số điện thoại thành chuẩn E.164 (VD: +84912345678)
-      // Lưu ý: Cần loại bỏ số 0 ở đầu số điện thoại nếu người dùng có nhập
+      // Build E.164 phone number (e.g. +84912345678)
       String rawPhone = _phoneController.text.trim();
       if (rawPhone.startsWith('0')) {
         rawPhone = rawPhone.substring(1);
@@ -73,31 +74,29 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
           phoneNumber: fullPhoneNumber,
           timeout: const Duration(seconds: 60),
 
-          // 1. Tự động xác thực thành công (Thường xảy ra trên Android nếu máy tự đọc được SMS)
+          // 1. Auto-verification (common on Android)
           verificationCompleted: (PhoneAuthCredential credential) async {
             await _linkPhoneAndCompleteProfile(credential);
           },
 
-          // 2. Lỗi khi gửi SMS (VD: Sai định dạng số, bị Firebase chặn)
+          // 2. Verification failed
           verificationFailed: (FirebaseAuthException e) {
             setState(() => _isLoading = false);
-            LuxuryToast.show(context, message: e.message ?? "Lỗi xác minh số điện thoại");
-
+            LuxuryToast.show(context, message: e.message ?? "Phone verification error");
           },
 
-          // 3. SMS đã được gửi thành công -> Hiển thị form nhập mã 6 số
+          // 3. SMS sent successfully -> Show OTP dialog
           codeSent: (String verificationId, int? resendToken) {
             setState(() => _isLoading = false);
             _showOTPDialog(verificationId);
           },
 
-          // 4. Hết thời gian chờ tự động lấy mã
+          // 4. Auto-retrieval timeout
           codeAutoRetrievalTimeout: (String verificationId) {},
         );
       } catch (e) {
         setState(() => _isLoading = false);
-        LuxuryToast.show(context, message: "Đã xảy ra lỗi không xác định");
-
+        LuxuryToast.show(context, message: "An unexpected error occurred");
       }
     }
   }
@@ -108,16 +107,16 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
 
     showDialog(
       context: context,
-      barrierDismissible: false, // Bắt buộc nhập hoặc bấm Hủy
+      barrierDismissible: false,
       builder: (context) {
         return StatefulBuilder(
             builder: (context, setDialogState) {
               return AlertDialog(
-                title: const Text("Xác minh số điện thoại"),
+                title: const Text("Verify Phone Number"),
                 content: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Text("Vui lòng nhập mã 6 số vừa được gửi đến số điện thoại của bạn."),
+                    const Text("Please enter the 6-digit code sent to your phone."),
                     const SizedBox(height: 16),
                     TextField(
                       controller: otpController,
@@ -135,7 +134,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                 actions: [
                   TextButton(
                     onPressed: isVerifying ? null : () => Navigator.pop(context),
-                    child: const Text("Hủy", style: TextStyle(color: Colors.grey)),
+                    child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
                   ),
                   ElevatedButton(
                     onPressed: isVerifying ? null : () async {
@@ -145,7 +144,6 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                       setDialogState(() => isVerifying = true);
 
                       try {
-                        // Tạo chứng chỉ từ mã người dùng nhập
                         PhoneAuthCredential credential = PhoneAuthProvider.credential(
                           verificationId: verificationId,
                           smsCode: otp,
@@ -153,18 +151,16 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
 
                         Navigator.pop(context);
 
-                        // Tiến hành lưu profile
                         await _linkPhoneAndCompleteProfile(credential);
                       } on FirebaseAuthException catch (e) {
                         setDialogState(() => isVerifying = false);
-                        LuxuryToast.show(context, message: "Mã OTP không chính xác!");
-
+                        LuxuryToast.show(context, message: "Invalid OTP code!");
                       }
                     },
                     style: ElevatedButton.styleFrom(backgroundColor: Colors.black),
                     child: isVerifying
                         ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Text("Xác nhận", style: TextStyle(color: Colors.white)),
+                        : const Text("Confirm", style: TextStyle(color: Colors.white)),
                   ),
                 ],
               );
@@ -177,18 +173,54 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   Future<void> _linkPhoneAndCompleteProfile(PhoneAuthCredential credential) async {
     setState(() => _isLoading = true);
     try {
-      // Lưu số điện thoại vào tài khoản Firebase Auth hiện tại
-      if (FirebaseAuth.instance.currentUser != null) {
-        // Dùng linkWithCredential để gắn sđt vào tài khoản Email đang đăng nhập
-        await FirebaseAuth.instance.currentUser!.linkWithCredential(credential);
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        // Link phone number to Firebase Auth account
+        await user.linkWithCredential(credential);
+
+        // Upload avatar to Firebase Storage if selected
+        String avatarUrl = '';
+        if (_imageFile != null) {
+          try {
+            final storageRef = FirebaseStorage.instance
+                .ref()
+                .child('user_avatars')
+                .child('${user.uid}.jpg');
+            await storageRef.putFile(_imageFile!);
+            avatarUrl = await storageRef.getDownloadURL();
+            await user.updatePhotoURL(avatarUrl);
+          } catch (e) {
+            debugPrint('Avatar upload failed: $e');
+          }
+        }
+
+        // Update display name in Firebase Auth
+        final name = _nameController.text.trim();
+        if (name.isNotEmpty) {
+          await user.updateDisplayName(name);
+        }
+
+        // Build the full phone number
+        String rawPhone = _phoneController.text.trim();
+        if (rawPhone.startsWith('0')) rawPhone = rawPhone.substring(1);
+        String fullPhoneNumber = '$_selectedCountryCode$rawPhone';
+
+        // Save ALL profile data to Firestore
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+          'name': name,
+          'email': user.email ?? '',
+          'phone': fullPhoneNumber,
+          'gender': _selectedGender ?? '',
+          'avatar': avatarUrl,
+          'role': 'user',
+          'isOnline': true,
+          'lastSeen': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
       }
 
-      // TẠI ĐÂY: Bạn có thể thêm code upload ảnh _imageFile lên Firebase Storage
-      // và lưu _nameController.text vào Cloud Firestore.
-
       if (mounted) {
-        LuxuryToast.show(context, message: "Xác minh thành công!");
-
+        LuxuryToast.show(context, message: "Profile completed successfully!");
 
         final prefs = await SharedPreferences.getInstance();
         bool isFirstTime = prefs.getBool('isFirstTimeUser') ?? true;
@@ -201,13 +233,13 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
         }
       }
     } on FirebaseAuthException catch (e) {
-      LuxuryToast.show(context, message: e.message ?? "Lỗi liên kết số điện thoại");
-
+      LuxuryToast.show(context, message: e.message ?? "Error linking phone number");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
-  // Mở BottomSheet chọn ảnh
+
+  // Show BottomSheet for image picker
   void _showImagePickerOptions() {
     showModalBottomSheet(
       context: context,
@@ -221,12 +253,12 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
               ListTile(
                 leading: const Icon(Icons.camera_alt_outlined),
                 title: const Text('Take a photo'),
-                onTap: () => _pickImage(ImageSource.camera), // Gọi hàm chụp ảnh
+                onTap: () => _pickImage(ImageSource.camera),
               ),
               ListTile(
                 leading: const Icon(Icons.photo_library_outlined),
                 title: const Text('Choose from gallery'),
-                onTap: () => _pickImage(ImageSource.gallery), // Gọi hàm mở thư viện
+                onTap: () => _pickImage(ImageSource.gallery),
               ),
             ],
           ),
@@ -235,14 +267,13 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     );
   }
 
-  // LOGIC: Dùng thư viện country_picker để hiển thị danh sách quốc gia có thanh tìm kiếm
   void _showCountryCodePicker() {
     showCountryPicker(
       context: context,
       showPhoneCode: true,
       onSelect: (Country country) {
         setState(() {
-          _selectedCountryCode = "+${country.phoneCode}"; // Cập nhật mã vùng
+          _selectedCountryCode = "+${country.phoneCode}";
         });
       },
       countryListTheme: CountryListThemeData(
@@ -316,7 +347,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                         ),
                         const SizedBox(height: 32),
 
-                        // --- AVATAR SECTION (Cập nhật hiển thị ảnh thật) ---
+                        // --- AVATAR SECTION ---
                         Center(
                           child: Stack(
                             children: [
@@ -326,7 +357,6 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFF3F4F6),
                                   shape: BoxShape.circle,
-                                  // Kiểm tra: Nếu có ảnh thì hiển thị ảnh, nếu không thì hiện icon mặc định
                                   image: _imageFile != null
                                       ? DecorationImage(
                                     image: FileImage(_imageFile!),
@@ -361,13 +391,12 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                         const SizedBox(height: 40),
 
                         // --- FORM FIELDS ---
-                        // 1. Name Input (Cập nhật chặn nhập số)
+                        // 1. Name Input
                         const Text("Name", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87)),
                         const SizedBox(height: 8),
                         TextFormField(
                           controller: _nameController,
                           textCapitalization: TextCapitalization.words,
-                          // Regex chặn nhập số và ký tự đặc biệt, chỉ cho phép chữ cái (bao gồm tiếng Việt) và dấu cách
                           inputFormatters: [
                             FilteringTextInputFormatter.allow(RegExp(r'[a-zA-ZÀ-ỹ\s]')),
                           ],
@@ -377,7 +406,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                         ),
                         const SizedBox(height: 24),
 
-                        // 2. Phone Number Input (Cập nhật validate độ dài)
+                        // 2. Phone Number Input
                         const Text("Phone Number", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.black87)),
                         const SizedBox(height: 8),
                         Container(
@@ -411,7 +440,6 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                                     if (value == null || value.isEmpty) {
                                       return 'Please enter phone number';
                                     }
-                                    // Kiểm tra độ dài hợp lệ (ví dụ: 9 đến 11 số)
                                     if (value.length < 9 || value.length > 11) {
                                       return 'Phone number must be 9-11 digits';
                                     }

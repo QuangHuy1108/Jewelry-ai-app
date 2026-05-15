@@ -2,6 +2,7 @@ import 'package:jewelry_app/core/utils/luxury_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../router/app_router.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -80,12 +81,26 @@ class _SignUpScreenState extends State<SignUpScreen> {
     setState(() => _isLoading = true);
 
     try {
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
 
-      await FirebaseAuth.instance.currentUser?.updateDisplayName(name);
+      await userCredential.user?.updateDisplayName(name);
+
+      // --- Create Firestore User Document ---
+      if (userCredential.user != null) {
+        await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
+          'name': name,
+          'email': email,
+          'createdAt': FieldValue.serverTimestamp(),
+          'role': 'user',
+          'avatar': '',
+          'phone': '',
+          'isOnline': true,
+          'lastSeen': FieldValue.serverTimestamp(),
+        });
+      }
 
       if (mounted) {
         _showSuccess("Account created! Verifying your email...");
@@ -270,7 +285,24 @@ class _SignUpScreenState extends State<SignUpScreen> {
         idToken: googleAuth.idToken,
       );
 
-      await FirebaseAuth.instance.signInWithCredential(credential);
+      final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+      final user = userCredential.user;
+      
+      // --- Create Firestore User Document if it doesn't exist ---
+      if (user != null) {
+        final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        if (!doc.exists) {
+          await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+            'name': user.displayName ?? 'User',
+            'email': user.email ?? '',
+            'createdAt': FieldValue.serverTimestamp(),
+            'role': 'user',
+            'avatar': user.photoURL ?? '',
+            'phoneNumber': user.phoneNumber ?? '',
+          });
+        }
+      }
+
       await _saveLoginStatus();
 
       if (mounted) {

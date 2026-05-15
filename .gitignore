@@ -43,10 +43,14 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/build/
+**/build/
 
 # Firebase credentials — NEVER commit these
 **/service-account.json
 **/serviceAccountKey.json
+**/service-account.json.json
+*.json.json
 
 # Web dashboard build artifacts
 **/node_modules/

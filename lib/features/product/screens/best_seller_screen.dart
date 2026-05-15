@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:jewelry_app/services/product_service.dart';
 import '../widgets/product_card.dart';
 import '../../../router/app_navigation.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/product_grid_constants.dart';
 
 class BestSellerScreen extends StatefulWidget {
   const BestSellerScreen({super.key});
@@ -16,7 +18,7 @@ class _BestSellerScreenState extends State<BestSellerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFFFF),
+      backgroundColor: AppColors.canvasParchment,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -43,42 +45,42 @@ class _BestSellerScreenState extends State<BestSellerScreen> {
 
   Widget _buildHeader(BuildContext context) {
     return Container(
-      height: 70, // Height: 60px - 80px
+      height: 70,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: const BoxDecoration(
-        color: Color(0xFFFFFFFF),
+        color: AppColors.canvas,
         border: Border(
-          bottom: BorderSide(color: Color(0xFFF5F5F5), width: 1),
+          bottom: BorderSide(color: AppColors.hairline, width: 1),
         ),
       ),
       child: Row(
         children: [
-          // Circular Back Button
           GestureDetector(
             onTap: () => Navigator.pop(context),
             child: Container(
-              width: 40,
-              height: 40,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFFEEEEEE)),
+                border: Border.all(color: AppColors.hairline),
               ),
-              child: const Icon(Icons.arrow_back, color: Color(0xFF333333), size: 20),
+              child: const Icon(Icons.arrow_back, color: AppColors.ink, size: 20),
             ),
           ),
           const Expanded(
             child: Center(
               child: Text(
-                'Best Seller Product',
+                'Best Sellers',
                 style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF333333),
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.ink,
+                  letterSpacing: -0.374,
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 40), // Balance
+          const SizedBox(width: 44),
         ],
       ),
     );
@@ -86,13 +88,8 @@ class _BestSellerScreenState extends State<BestSellerScreen> {
 
   Widget _buildLoadingGrid() {
     return GridView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: 0.75, // Standardized ratio
-      ),
+      padding: ProductGridConstants.gridPadding,
+      gridDelegate: ProductGridConstants.gridDelegate,
       itemCount: 6,
       itemBuilder: (context, index) => const ShimmerProductCard(),
     );
@@ -105,24 +102,26 @@ class _BestSellerScreenState extends State<BestSellerScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.search_off_rounded, size: 80, color: Color(0xFFEEEEEE)),
+            const Icon(Icons.search_off_rounded, size: 80, color: AppColors.hairline),
             const SizedBox(height: 16),
             const Text(
               'No best sellers found',
               style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF333333),
+                fontSize: 17,
+                fontWeight: FontWeight.w600,
+                color: AppColors.ink,
+                letterSpacing: -0.374,
               ),
             ),
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: () => Navigator.pop(context),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF333333),
-                foregroundColor: Colors.white,
+                backgroundColor: AppColors.ink,
+                foregroundColor: AppColors.bodyOnDark,
                 padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9999)),
+                elevation: 0,
               ),
               child: const Text('Refresh'),
             ),
@@ -133,21 +132,9 @@ class _BestSellerScreenState extends State<BestSellerScreen> {
   }
 
   Widget _buildProductGrid(List<QueryDocumentSnapshot<Map<String, dynamic>>> docs) {
-    final bottomPadding = MediaQuery.paddingOf(context).bottom;
-    
     return GridView.builder(
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 20,
-        bottom: 20 + bottomPadding,
-      ),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: 0.75,
-      ),
+      padding: ProductGridConstants.gridPaddingWithBottom(context),
+      gridDelegate: ProductGridConstants.gridDelegate,
       itemCount: docs.length,
       itemBuilder: (context, index) {
         final doc = docs[index];
@@ -203,8 +190,9 @@ class ShimmerProductCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.grey.shade200,
-        borderRadius: BorderRadius.circular(16),
+        color: AppColors.canvasParchment,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.hairline, width: 1),
       ),
     );
   }

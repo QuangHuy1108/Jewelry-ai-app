@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../providers/ai_scan_provider.dart';
 import '../../product/widgets/product_card.dart';
 import '../../../router/app_navigation.dart';
+import '../../../core/theme/product_grid_constants.dart';
 
 class AiScanScreen extends StatefulWidget {
   const AiScanScreen({super.key});
@@ -240,7 +241,7 @@ class _AiScanScreenState extends State<AiScanScreen> {
           child: Text('Similar Pieces from our Collection', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black)),
         ),
         SizedBox(
-          height: 280,
+          height: ProductGridConstants.horizontalListHeight,
           child: FutureBuilder<QuerySnapshot>(
             future: FirebaseFirestore.instance
                 .collection('products')
@@ -258,17 +259,17 @@ class _AiScanScreenState extends State<AiScanScreen> {
               
               final products = snapshot.data!.docs;
               
-              return ListView.builder(
+              return ListView.separated(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: ProductGridConstants.horizontalListPadding,
                 itemCount: products.length,
+                separatorBuilder: (_, __) => const SizedBox(width: ProductGridConstants.horizontalCardSpacing),
                 itemBuilder: (context, index) {
                   final data = products[index].data() as Map<String, dynamic>;
                   data['id'] = products[index].id;
                   
-                  return Container(
-                    width: 160,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  return SizedBox(
+                    width: ProductGridConstants.horizontalCardWidth,
                     child: ProductCard(
                       product: data,
                       onTap: () {

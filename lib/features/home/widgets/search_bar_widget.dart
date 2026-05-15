@@ -1,5 +1,6 @@
 import 'package:jewelry_app/core/utils/luxury_toast.dart';
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 
 class SearchBarWidget extends StatefulWidget {
   final TextEditingController controller;
@@ -51,33 +52,27 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // Determine if we show a clear button or a QR code scanner dummy icon
     final bool showClear = widget.controller.text.isNotEmpty && !widget.readOnly;
 
     return GestureDetector(
       onTap: widget.onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        height: 45,
+        height: 44, // exact search-input height token
         decoration: BoxDecoration(
-          color: const Color(0xFFF5F5F5),
-          borderRadius: BorderRadius.circular(12),
+          color: AppColors.canvas,
+          borderRadius: BorderRadius.circular(9999), // rounded.pill
+          border: Border.all(color: AppColors.hairline, width: 1), // theme hairline token standard
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        alignment: Alignment.centerLeft,
         child: Row(
           children: [
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(20),
-                onTap: _handleSearch,
-                child: const Padding(
-                  padding: EdgeInsets.all(4.0),
-                  child: Icon(Icons.search, color: Colors.grey),
-                ),
-              ),
+            GestureDetector(
+              onTap: _handleSearch,
+              child: const Icon(Icons.search, color: AppColors.inkMuted48, size: 16),
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: 8),
             Expanded(
               child: IgnorePointer(
                 ignoring: widget.readOnly,
@@ -88,9 +83,14 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
                   onChanged: widget.onChanged,
                   onSubmitted: (_) => _handleSearch(),
                   textInputAction: TextInputAction.search,
+                  style: const TextStyle(
+                    color: AppColors.ink,
+                    fontSize: 17, // SF Pro body size
+                    letterSpacing: -0.374,
+                  ),
                   decoration: const InputDecoration(
-                    hintText: "Search..",
-                    hintStyle: TextStyle(color: Colors.grey),
+                    hintText: "Search catalog...",
+                    hintStyle: TextStyle(color: AppColors.inkMuted48, fontSize: 17, letterSpacing: -0.374),
                     border: InputBorder.none,
                     isDense: true,
                     contentPadding: EdgeInsets.zero,
@@ -101,10 +101,10 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
             if (showClear)
               GestureDetector(
                 onTap: widget.onClear,
-                child: const Icon(Icons.close, color: Colors.grey, size: 20),
+                child: const Icon(Icons.close, color: AppColors.inkMuted48, size: 16),
               )
             else if (widget.readOnly)
-              const Icon(Icons.qr_code_scanner, color: Colors.grey, size: 20),
+              const Icon(Icons.qr_code_scanner, color: AppColors.inkMuted48, size: 16),
           ],
         ),
       ),

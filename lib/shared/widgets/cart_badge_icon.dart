@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../features/cart/providers/cart_provider.dart';
+import '../../core/theme/app_colors.dart';
 
 class CartIconWithBadge extends StatelessWidget {
   final IconData iconData;
@@ -19,7 +20,7 @@ class CartIconWithBadge extends StatelessWidget {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        Icon(iconData, color: iconColor, size: size),
+        Icon(iconData, color: iconColor ?? AppColors.inkMuted48, size: size),
         Consumer<CartProvider>(
           builder: (context, cartProvider, child) {
             final int totalItems = cartProvider.items.fold(0, (sum, item) => sum + (item['qty'] as int? ?? 1));
@@ -32,7 +33,7 @@ class CartIconWithBadge extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(4),
                 decoration: const BoxDecoration(
-                  color: Colors.red,
+                  color: AppColors.primary, // Brand level Action Blue token
                   shape: BoxShape.circle,
                 ),
                 constraints: const BoxConstraints(
@@ -43,9 +44,9 @@ class CartIconWithBadge extends StatelessWidget {
                   child: Text(
                     totalItems > 9 ? '9+' : '$totalItems',
                     style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 8,
-                      fontWeight: FontWeight.bold,
+                      color: AppColors.bodyOnDark,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
                       height: 1,
                     ),
                     textAlign: TextAlign.center,

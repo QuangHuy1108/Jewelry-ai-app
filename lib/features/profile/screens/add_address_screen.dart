@@ -60,25 +60,56 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Simple Grid to simulate a map
-          GridPaper(
-            color: Colors.black.withAlpha(15),
-            divisions: 2,
-            subdivisions: 1,
-            interval: 100,
+          // Real OpenStreetMap static tile as background
+          Positioned.fill(
+            child: Image.network(
+              'https://tile.openstreetmap.org/13/6584/3833.png',
+              fit: BoxFit.cover,
+              repeat: ImageRepeat.repeat,
+              errorBuilder: (_, __, ___) => Container(
+                color: const Color(0xFFE8EAF0),
+                child: const Center(
+                  child: Icon(Icons.map_outlined, size: 64, color: Color(0xFFBBBBBB)),
+                ),
+              ),
+            ),
           ),
-          // Map Roads simulation
-          CustomPaint(
-            painter: MapPlaceholderPainter(),
-            size: Size.infinite,
+          // Darkened overlay for readability
+          Positioned.fill(
+            child: Container(color: Colors.white.withOpacity(0.3)),
           ),
           // Location Pin
           const Padding(
-            padding: EdgeInsets.only(bottom: 40), // Shift pin up slightly to look like it's pointing at center
+            padding: EdgeInsets.only(bottom: 40),
             child: Icon(
               Icons.location_on,
               size: 56,
-              color: Color(0xFF777777),
+              color: Color(0xFFE53935),
+            ),
+          ),
+          // "Tap to select location" prompt
+          Positioned(
+            bottom: 20,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2)),
+                ],
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.touch_app, size: 16, color: Color(0xFF777777)),
+                  SizedBox(width: 6),
+                  Text(
+                    'Select location on map',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF555555), fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -295,37 +326,4 @@ class _AddAddressScreenState extends State<AddAddressScreen> {
       ),
     );
   }
-}
-
-// Custom Painter to draw some fake diagonal roads for the map placeholder
-class MapPlaceholderPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 12.0
-      ..style = PaintingStyle.stroke;
-
-    final path = Path();
-    path.moveTo(-50, size.height * 0.2);
-    path.lineTo(size.width + 50, size.height * 0.8);
-
-    path.moveTo(-50, size.height * 0.6);
-    path.lineTo(size.width + 50, -50);
-
-    path.moveTo(size.width * 0.5, -50);
-    path.lineTo(size.width * 0.5, size.height + 50);
-
-    canvas.drawPath(path, paint);
-    
-    // Add thinner roads
-    paint.strokeWidth = 6.0;
-    final path2 = Path();
-    path2.moveTo(size.width * 0.2, -50);
-    path2.lineTo(size.width * 0.8, size.height + 50);
-    canvas.drawPath(path2, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
 import '../providers/product_provider.dart';
+import '../../../core/theme/app_colors.dart';
+import 'package:jewelry_app/services/product_service.dart';
 
 import '../widgets/size_selector.dart';
 import '../widgets/full_screen_gallery.dart';
@@ -29,25 +31,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: _selectedImageIndex);
-    // Initialize product state in provider
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ProductProvider>().initProduct({
-        "id": "pd1",
-        "name": "Gold Earring",
-        "category": "Earrings",
-        "basePrice": 1200.0,
-        "images": [
-          "https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4",
-          "https://i.postimg.cc/4yh339Lk/h7.jpg",
-          "https://i.postimg.cc/cHWq3842/h8.jpg",
-          "https://i.postimg.cc/zv06gtVy/h9.jpg",
-          "https://i.postimg.cc/pL94mBxp/h10.jpg",
-          "https://i.postimg.cc/43qyqfT2/h4.jpg",
-        ],
-        "stock": 10,
-        "rating": 4.8,
-        "reviews": 124,
-      });
       _loadProduct();
     });
   }
@@ -59,8 +43,42 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Future<void> _loadProduct() async {
-    await Future.delayed(const Duration(milliseconds: 1000));
+    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final provider = context.read<ProductProvider>();
+
+    if (args != null && args.isNotEmpty) {
+      // If full product data was passed via navigation, use it directly
+      if (args.containsKey('basePrice') || args.containsKey('images')) {
+        provider.initProduct(args);
+      } else {
+        // Minimal data passed (e.g. from card) — fetch full record from Firestore
+        final productId = args['id']?.toString() ?? '';
+        if (productId.isNotEmpty) {
+          try {
+            final doc = await ProductService().getProductById(productId);
+            if (doc.exists) {
+              provider.initProduct({'id': doc.id, ...doc.data()!});
+            } else {
+              provider.initProduct({...args, 'basePrice': _parsePrice(args['price']), 'images': [args['image'] ?? '']});
+            }
+          } catch (_) {
+            provider.initProduct({...args, 'basePrice': _parsePrice(args['price']), 'images': [args['image'] ?? '']});
+          }
+        } else {
+          provider.initProduct({...args, 'basePrice': _parsePrice(args['price']), 'images': [args['image'] ?? '']});
+        }
+      }
+    }
+    // else: provider keeps its current product state (could already be set)
+
     if (mounted) setState(() => _isLoading = false);
+  }
+
+  double _parsePrice(dynamic price) {
+    if (price is double) return price;
+    if (price is int) return price.toDouble();
+    if (price is String) return double.tryParse(price.replaceAll('\$', '').replaceAll(',', '')) ?? 0.0;
+    return 0.0;
   }
 
   @override
@@ -247,13 +265,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       child: Container(
         width: double.infinity,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.canvas, // signature absolute canvas token
           borderRadius: isTablet ? BorderRadius.circular(24) : const BorderRadius.vertical(top: Radius.circular(32)),
-          boxShadow: [
-            BoxShadow(color: Colors.black12, blurRadius: isTablet ? 15 : 20, offset: Offset(0, isTablet ? 5 : -5)),
-          ],
+          border: Border.all(color: AppColors.hairline, width: 1), // flat hairline profile
+          // zero container shadow rule enforced
         ),
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24), // token spacing.lg alignment
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -298,21 +315,47 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(product['category'] ?? '', style: const TextStyle(fontSize: 14, color: Color(0xFF999999))),
+            Text(
+              (product['category'] ?? '').toString().toUpperCase(), 
+              style: const TextStyle(
+                fontSize: 11, // clean brand subhead alignment
+                fontWeight: FontWeight.w600,
+                color: AppColors.inkMuted48,
+                letterSpacing: 0.5,
+              ),
+            ),
             GestureDetector(
               onTap: () => Navigator.pushNamed(context, '/review'),
+              behavior: HitTestBehavior.opaque,
               child: Row(
                 children: [
-                  const Icon(Icons.star, color: Color(0xFFFFD700), size: 16),
+                  const Icon(Icons.star, color: Color(0xFFF5A623), size: 14), // subtle curated gold tone
                   const SizedBox(width: 4),
-                  Text('${product['rating']} (${product['reviews']} reviews)', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, decoration: TextDecoration.underline)),
+                  Text(
+                    '${product['rating']} (${product['reviews']} reviews)', 
+                    style: const TextStyle(
+                      fontSize: 13, 
+                      fontWeight: FontWeight.w600, 
+                      color: AppColors.ink,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
                 ],
               ),
             ),
           ],
         ),
         const SizedBox(height: 8),
-        Text(product['name'] ?? '', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF333333))),
+        Text(
+          product['name'] ?? '', 
+          style: const TextStyle(
+            fontSize: 28, // SF Pro Display Token
+            fontWeight: FontWeight.w600, 
+            color: AppColors.ink,
+            letterSpacing: 0.196,
+            height: 1.14,
+          ),
+        ),
       ],
     );
   }
@@ -324,23 +367,43 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Purity
-            const Text('Purity', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Text(
+              'Gold Material Purity', 
+              style: TextStyle(
+                fontSize: 17, // SF Pro body-strong token
+                fontWeight: FontWeight.w600,
+                color: AppColors.ink,
+                letterSpacing: -0.374,
+              ),
+            ),
             const SizedBox(height: 12),
             Row(
               children: ['18 KT', '22 KT'].map((purity) {
                 final isSelected = provider.selectedPurity == purity;
                 return Padding(
-                  padding: const EdgeInsets.only(right: 12),
+                  padding: const EdgeInsets.only(right: 10),
                   child: GestureDetector(
                     onTap: () => provider.setPurity(purity),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    behavior: HitTestBehavior.opaque,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
                       decoration: BoxDecoration(
-                        color: isSelected ? const Color(0xFF333333) : Colors.white,
-                        border: Border.all(color: isSelected ? const Color(0xFF333333) : const Color(0xFFEFEFEF)),
-                        borderRadius: BorderRadius.circular(8),
+                        color: isSelected ? AppColors.ink : AppColors.canvas,
+                        border: Border.all(
+                          color: isSelected ? AppColors.ink : AppColors.hairline,
+                          width: 1,
+                        ),
+                        borderRadius: BorderRadius.circular(9999), // configurator pill token
                       ),
-                      child: Text(purity, style: TextStyle(color: isSelected ? Colors.white : const Color(0xFF333333), fontWeight: FontWeight.bold)),
+                      child: Text(
+                        purity, 
+                        style: TextStyle(
+                          color: isSelected ? AppColors.bodyOnDark : AppColors.ink, 
+                          fontSize: 15,
+                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                        ),
+                      ),
                     ),
                   ),
                 );
@@ -357,19 +420,47 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             
             // Quantity
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Quantity:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                const SizedBox(width: 16),
+                const Text(
+                  'Quantity', 
+                  style: TextStyle(
+                    fontSize: 17, // body-strong token
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.ink,
+                    letterSpacing: -0.374,
+                  ),
+                ),
                 Container(
+                  height: 44,
                   decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey.shade300),
-                    borderRadius: BorderRadius.circular(30),
+                    color: AppColors.canvas,
+                    border: Border.all(color: AppColors.hairline, width: 1),
+                    borderRadius: BorderRadius.circular(9999),
                   ),
                   child: Row(
                     children: [
-                      IconButton(icon: const Icon(Icons.remove, size: 18), onPressed: () => provider.setQty(provider.qty - 1)),
-                      Text('${provider.qty}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                      IconButton(icon: const Icon(Icons.add, size: 18), onPressed: () => provider.setQty(provider.qty + 1)),
+                      IconButton(
+                        icon: const Icon(Icons.remove, size: 16, color: AppColors.ink), 
+                        onPressed: () => provider.setQty(provider.qty - 1),
+                        splashRadius: 20,
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Text(
+                          '${provider.qty}', 
+                          style: const TextStyle(
+                            fontSize: 16, 
+                            fontWeight: FontWeight.w600, 
+                            color: AppColors.ink,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.add, size: 16, color: AppColors.ink), 
+                        onPressed: () => provider.setQty(provider.qty + 1),
+                        splashRadius: 20,
+                      ),
                     ],
                   ),
                 ),
@@ -441,7 +532,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       onTap: () => Navigator.pushNamed(context, '/seller-profile', arguments: seller),
                       child: CircleAvatar(
                         radius: 24,
-                        backgroundImage: NetworkImage(seller['avatar']),
+                        backgroundImage: (seller['avatar'] as String).isNotEmpty ? NetworkImage(seller['avatar']) : null,
                         backgroundColor: Colors.grey.shade200,
                       ),
                     ),

@@ -2,60 +2,83 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/product_provider.dart';
 import '../../product/widgets/product_card.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/product_grid_constants.dart';
+import 'package:jewelry_app/services/product_service.dart';
 
-class SimilarProductList extends StatelessWidget {
+class SimilarProductList extends StatefulWidget {
   const SimilarProductList({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // In a real app, you would fetch similar products based on the current product
-    final currentProduct = context.watch<ProductProvider>().product;
-    if (currentProduct.isEmpty) return const SizedBox.shrink();
+  State<SimilarProductList> createState() => _SimilarProductListState();
+}
 
-    // Mock similar products
-    final List<Map<String, dynamic>> similarProducts = [
-      {
-        "id": "sim_1",
-        "name": "Luxury Gold Bracelet",
-        "price": 1200.0,
-        "image": "https://i.postimg.cc/4yh339Lk/h7.jpg",
-      },
-      {
-        "id": "sim_2",
-        "name": "Silver Choker",
-        "price": 450.0,
-        "image": "https://i.postimg.cc/cHWq3842/h8.jpg",
-      },
-      {
-        "id": "sim_3",
-        "name": "Diamond Ring",
-        "price": 2500.0,
-        "image": "https://i.postimg.cc/zv06gtVy/h9.jpg",
-      },
-    ];
+class _SimilarProductListState extends State<SimilarProductList> {
+  List<Map<String, dynamic>> _similarProducts = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadSimilarProducts());
+  }
+
+  Future<void> _loadSimilarProducts() async {
+    final currentProduct = context.read<ProductProvider>().product;
+    if (currentProduct.isEmpty) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+
+    try {
+      final category = currentProduct['category'] ?? '';
+      final productId = currentProduct['id'] ?? '';
+      final results = await ProductService().getSimilarProducts(category, productId);
+      if (mounted) {
+        setState(() {
+          _similarProducts = results;
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 20),
+        child: Center(child: CircularProgressIndicator(color: AppColors.ink, strokeWidth: 2)),
+      );
+    }
+
+    if (_similarProducts.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20),
-          child: Text(
-            'Similar Products',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF333333)),
+        const Text(
+          'Similar Products',
+          style: TextStyle(
+            fontSize: 21,
+            fontWeight: FontWeight.w600, 
+            color: AppColors.ink,
+            letterSpacing: -0.3,
           ),
         ),
         const SizedBox(height: 16),
         SizedBox(
-          height: 250,
+          height: ProductGridConstants.horizontalListHeight,
           child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
             scrollDirection: Axis.horizontal,
-            itemCount: similarProducts.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 16),
+            itemCount: _similarProducts.length,
+            separatorBuilder: (_, __) => const SizedBox(width: ProductGridConstants.horizontalCardSpacing),
             itemBuilder: (context, index) {
               return SizedBox(
-                width: 160,
-                child: ProductCard(product: similarProducts[index]),
+                width: ProductGridConstants.horizontalCardWidth,
+                child: ProductCard(product: _similarProducts[index]),
               );
             },
           ),

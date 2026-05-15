@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/theme/app_colors.dart';
 
 class CollapsibleSection extends StatefulWidget {
   final String title;
@@ -29,12 +30,24 @@ class _CollapsibleSectionState extends State<CollapsibleSection> {
           onTap: () => setState(() => _isExpanded = !_isExpanded),
           behavior: HitTestBehavior.opaque,
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
+            padding: const EdgeInsets.symmetric(vertical: 14),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(widget.title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF333333))),
-                Icon(_isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, color: const Color(0xFF999999)),
+                Text(
+                  widget.title, 
+                  style: const TextStyle(
+                    fontSize: 17, // SF Pro body-strong token
+                    fontWeight: FontWeight.w600, 
+                    color: AppColors.ink,
+                    letterSpacing: -0.374,
+                  ),
+                ),
+                Icon(
+                  _isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, 
+                  color: AppColors.inkMuted48,
+                  size: 20,
+                ),
               ],
             ),
           ),
@@ -47,7 +60,12 @@ class _CollapsibleSectionState extends State<CollapsibleSection> {
                   padding: const EdgeInsets.only(bottom: 16),
                   child: Text(
                     widget.content,
-                    style: const TextStyle(fontSize: 14, color: Color(0xFF666666), height: 1.5),
+                    style: const TextStyle(
+                      fontSize: 14, 
+                      color: AppColors.inkMuted48, 
+                      letterSpacing: -0.224,
+                      height: 1.4,
+                    ),
                   ),
                 )
               : Padding(
@@ -56,11 +74,16 @@ class _CollapsibleSectionState extends State<CollapsibleSection> {
                     widget.content,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 14, color: Color(0xFF666666), height: 1.5),
+                    style: const TextStyle(
+                      fontSize: 14, 
+                      color: AppColors.inkMuted48, 
+                      letterSpacing: -0.224,
+                      height: 1.4,
+                    ),
                   ),
                 ),
         ),
-        Divider(height: 1, color: Colors.grey.shade300),
+        const Divider(height: 1, color: AppColors.hairline),
       ],
     );
   }

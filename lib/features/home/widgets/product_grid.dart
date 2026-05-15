@@ -3,28 +3,30 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:jewelry_app/services/product_service.dart';
 import '../../product/widgets/product_card.dart';
 import '../../product/screens/best_seller_screen.dart';
+import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/product_grid_constants.dart';
 
 class ProductGrid extends StatelessWidget {
   const ProductGrid({super.key});
 
   @override
   Widget build(BuildContext context) {
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(height: 12),
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                "Best Seller Product",
+                "Best Sellers",
                 style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
+                  fontSize: 21, // SF Pro tagline size
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.ink,
+                  letterSpacing: 0.231,
                 ),
               ),
               GestureDetector(
@@ -35,35 +37,35 @@ class ProductGrid extends StatelessWidget {
                   );
                 },
                 child: const Text(
-                  "See All",
-                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                  "Browse All",
+                  style: TextStyle(
+                    fontSize: 14, 
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w400,
+                    letterSpacing: -0.224,
+                  ),
                 ),
               ),
             ],
           ),
         ),
         Padding(
-          padding: const EdgeInsets.all(12),
+          padding: ProductGridConstants.gridPadding,
           child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
             stream: ProductService().getBestSellersStream(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator(color: Color(0xFF333333)));
+                return const Center(child: CircularProgressIndicator(color: AppColors.ink));
               }
               final docs = snapshot.data?.docs ?? [];
               if (docs.isEmpty) {
-                return const Center(child: Padding(padding: EdgeInsets.all(32), child: Text("No products found", style: TextStyle(color: Color(0xFF999999)))));
+                return const Center(child: Padding(padding: EdgeInsets.all(32), child: Text("No items found", style: TextStyle(color: AppColors.inkMuted48))));
               }
               return GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: docs.length,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  childAspectRatio: 0.75,
-                  crossAxisSpacing: 8,
-                  mainAxisSpacing: 8,
-                ),
+                gridDelegate: ProductGridConstants.gridDelegate,
                 itemBuilder: (context, index) {
                   final doc = docs[index];
                   final data = doc.data();

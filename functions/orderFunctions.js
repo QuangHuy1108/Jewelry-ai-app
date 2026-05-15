@@ -45,27 +45,45 @@ exports.onOrderCreated = functions.firestore
       if (userDoc.exists) {
         const fcmToken = userDoc.data().fcmToken;
         if (fcmToken) {
+          const expiresDate = new Date();
+          expiresDate.setDate(expiresDate.getDate() + 30); // 30-day default TTL
+
           await admin.messaging().send({
             token: fcmToken,
             notification: {
-              title: 'Order Confirmed! 🎉',
-              body: `Your order #${orderId.substring(0, 8).toUpperCase()} has been placed successfully.`,
+              title: 'Order Confirmed ✨',
+              body: `Your order is confirmed and being prepared with care. Piece #${orderId.substring(0, 8).toUpperCase()}`,
             },
             data: {
               type: 'order_created',
               orderId: orderId,
+              deepLink: `/orders/${orderId}`,
+              priority: 'high',
+              level: 'transactional',
+              role: 'buyer',
+              status: 'DELIVERED',
+              expiresAt: expiresDate.toISOString(),
             },
           });
         }
 
-        // Save in-app notification
+        // Save in-app notification with definitive schema properties
+        const expiresDateDoc = new Date();
+        expiresDateDoc.setDate(expiresDateDoc.getDate() + 30);
+
         await db.collection('users').doc(userId).collection('notifications').add({
-          title: 'Order Confirmed',
-          body: `Your order #${orderId.substring(0, 8).toUpperCase()} has been placed successfully.`,
+          title: 'Order Confirmed ✨',
+          body: `Your order is confirmed and being prepared with care. Piece #${orderId.substring(0, 8).toUpperCase()}`,
           type: 'order_created',
           orderId: orderId,
+          deepLink: `/orders/${orderId}`,
+          priority: 'high',
+          level: 'transactional',
+          role: 'buyer',
+          status: 'DELIVERED',
           isRead: false,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          expiresAt: expiresDateDoc,
         });
       }
     } catch (err) {
@@ -96,11 +114,11 @@ exports.onOrderUpdated = functions.firestore
     const shortId = orderId.substring(0, 8).toUpperCase();
 
     const statusMessages = {
-      'processing': `Your order #${shortId} is being processed.`,
-      'shipped': `Your order #${shortId} has been shipped! 🚚`,
-      'delivered': `Your order #${shortId} has been delivered! ✅`,
-      'cancelled': `Your order #${shortId} has been cancelled.`,
-      'refunded': `Your order #${shortId} has been refunded. 💰`,
+      'processing': `✨ Your order #${shortId} is being processed with exquisite care.`,
+      'shipped': `🚚 Your piece has begun its journey. Secure shipment is underway for #${shortId}.`,
+      'delivered': `🎁 Handcrafted elegance, delivered. Let us know how much you love piece #${shortId}.`,
+      'cancelled': `⚠️ Secure order #${shortId} uncompleted. Reversal parameters initialized.`,
+      'refunded': `💎 Disbursement Complete: Acquisition funds for #${shortId} safely restored.`,
     };
 
     const message = statusMessages[newStatus] || `Order #${shortId} status updated to: ${newStatus}`;
@@ -109,30 +127,43 @@ exports.onOrderUpdated = functions.firestore
       const userDoc = await db.collection('users').doc(userId).get();
       if (userDoc.exists) {
         const fcmToken = userDoc.data().fcmToken;
+        const statusExpires = new Date();
+        statusExpires.setDate(statusExpires.getDate() + 30);
+
         if (fcmToken) {
           await admin.messaging().send({
             token: fcmToken,
             notification: {
-              title: 'Order Update',
+              title: 'Order Update ✨',
               body: message,
             },
             data: {
               type: 'order_status',
               orderId: orderId,
               status: newStatus,
+              deepLink: `/orders/${orderId}`,
+              priority: 'high',
+              level: 'transactional',
+              role: 'buyer',
+              expiresAt: statusExpires.toISOString(),
             },
           });
         }
 
-        // Save in-app notification
+        // Save in-app notification matching schema boundaries
         await db.collection('users').doc(userId).collection('notifications').add({
-          title: 'Order Update',
+          title: 'Order Update ✨',
           body: message,
           type: 'order_status',
           orderId: orderId,
           status: newStatus,
+          deepLink: `/orders/${orderId}`,
+          priority: 'high',
+          level: 'transactional',
+          role: 'buyer',
           isRead: false,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          expiresAt: statusExpires,
         });
       }
     } catch (err) {
@@ -185,23 +216,40 @@ exports.onWalletTopUp = functions.firestore
       const userDoc = await db.collection('users').doc(userId).get();
       if (userDoc.exists) {
         const fcmToken = userDoc.data().fcmToken;
+        const walletExpires = new Date();
+        walletExpires.setDate(walletExpires.getDate() + 30);
+
         if (fcmToken) {
           await admin.messaging().send({
             token: fcmToken,
             notification: {
               title: 'Wallet Credited 💳',
-              body: `$${amount} has been added to your wallet.`,
+              body: `✨ Funds Secured: $${amount} has been securely deposited into your digital acquisition vault.`,
             },
-            data: { type: 'wallet_topup' },
+            data: {
+              type: 'wallet_topup',
+              deepLink: '/profile/wallet',
+              priority: 'high',
+              level: 'transactional',
+              role: 'buyer',
+              status: 'DELIVERED',
+              expiresAt: walletExpires.toISOString(),
+            },
           });
         }
 
         await db.collection('users').doc(userId).collection('notifications').add({
-          title: 'Wallet Credited',
-          body: `$${amount} has been added to your wallet via ${tx.paymentMethod || 'unknown'}.`,
+          title: 'Wallet Credited 💳',
+          body: `✨ Funds Secured: $${amount} has been securely deposited into your digital acquisition vault via ${tx.paymentMethod || 'standard transfer'}.`,
           type: 'wallet_topup',
+          deepLink: '/profile/wallet',
+          priority: 'high',
+          level: 'transactional',
+          role: 'buyer',
+          status: 'DELIVERED',
           isRead: false,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          expiresAt: walletExpires,
         });
       }
     } catch (err) {

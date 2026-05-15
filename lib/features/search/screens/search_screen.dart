@@ -5,6 +5,7 @@ import '../widgets/suggestion_list.dart';
 import '../widgets/recent_search_list.dart';
 import 'search_results_screen.dart';
 import '../../../../core/state/filter_state.dart';
+import 'package:jewelry_app/services/product_service.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -21,50 +22,47 @@ class _SearchScreenState extends State<SearchScreen> {
   String _query = "";
   bool isLoadingViews = true;
 
-  final List<Map<String, dynamic>> recentViews = [
-    {
-      "name": "Luxury Gold Ring with Diamonds and nice shiny finish",
-      "price": "\$1200",
-      "oldPrice": "\$1500",
-      "rating": "4.8",
-      "image": "https://i.postimg.cc/cHWq3842/h8.jpg"
-    },
-    {
-      "name": "Silver Choker Bracelet",
-      "price": "\$450",
-      "oldPrice": "\$600",
-      "rating": "4.5",
-      "image": "https://i.postimg.cc/4yh339Lk/h7.jpg"
-    },
-  ];
-  
+  List<Map<String, dynamic>> recentViews = [];
   List<String> suggestions = [];
-
-  final List<String> _mockData = [
-    "Diamond Ring",
-    "Diamond Necklace",
-    "Diamond Earrings",
-    "Gold Ring",
-    "Gold Necklace",
-    "Gold Bracelet",
-    "Silver Ring",
-    "Silver Bracelet",
-    "Ruby Pendant",
-    "Sapphire Ring",
-    "Pearl Necklace",
-  ];
+  List<String> _allProductNames = [];
 
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(seconds: 2), () {
+    _loadProductNames();
+    _loadRecentViews();
+    Future.microtask(() => _searchFocusNode.requestFocus());
+  }
+
+  Future<void> _loadProductNames() async {
+    try {
+      final products = await ProductService().getAllProductNames();
       if (mounted) {
         setState(() {
+          _allProductNames = products.map((p) => p['name'].toString()).toSet().toList();
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadRecentViews() async {
+    try {
+      final products = await ProductService().searchProducts('');
+      if (mounted) {
+        setState(() {
+          recentViews = products.take(2).map((p) => {
+            'name': p['name'] ?? '',
+            'price': '\$${p['price'] ?? 0}',
+            'oldPrice': p['discountPrice'] != null ? '\$${p['discountPrice']}' : '',
+            'rating': '${p['rating'] ?? 0.0}',
+            'image': p['image'] ?? '',
+          }).toList();
           isLoadingViews = false;
         });
       }
-    });
-    Future.microtask(() => _searchFocusNode.requestFocus());
+    } catch (_) {
+      if (mounted) setState(() => isLoadingViews = false);
+    }
   }
 
   @override
@@ -85,7 +83,7 @@ class _SearchScreenState extends State<SearchScreen> {
     _debounce = Timer(const Duration(milliseconds: 300), () {
       if (query.trim().isNotEmpty) {
         setState(() {
-          suggestions = _mockData
+          suggestions = _allProductNames
               .where((item) => item.toLowerCase().contains(query.toLowerCase()))
               .toList();
         });
