@@ -34,7 +34,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _chatProvider ??= context.read<ChatProvider>();
+
+    // Task 1: Robust Auth Resolution - Watch for currentUserId
+    final currentUserId = context.watch<ChatProvider>().currentUserId;
+    
+    // If Auth hasn't finished loading (Cold Start), keep the state waiting, don't lock it with _initializing
+    if (currentUserId.isEmpty) return;
     if (_initializing) return;
+
     final args =
         ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     if (args == null) return;
@@ -76,8 +83,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           );
           if (mounted) setState(() => _chatId = chatId);
         } catch (e) {
-          debugPrint('Error opening chat: $e');
-          if (mounted) Navigator.pop(context);
+          debugPrint('ChatDetailScreen Error: Failed to open chat session: $e');
+          // Step 1: COMPLETELY remove the Navigator.pop(context) here.
+          // Keep the screen open for the system to retry or show errors.
         }
       });
     }

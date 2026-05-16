@@ -73,8 +73,8 @@ class PushNotificationService {
     // 8. Check if app was opened from terminated state
     RemoteMessage? initialMessage = await _fcm.getInitialMessage();
     if (initialMessage != null) {
-      // Small delay just to make sure navigator context is mounted
-      Future.delayed(const Duration(milliseconds: 1000), () {
+      // Task 2: Increased delay to 2500ms for framework stability
+      Future.delayed(const Duration(milliseconds: 2500), () {
         _handleNavigationData(initialMessage);
       });
     }
@@ -398,9 +398,11 @@ class PushNotificationService {
       } else if (deepLink.startsWith('/chat/')) {
         final parts = deepLink.split('/');
         final sellerId = parts.last;
+        final chatId = payload['chatId'] as String?; // Extract chatId
         currentState.pushNamed(
           AppRouter.chatDetail,
           arguments: {
+            'chatId': chatId, // Pass chatId to force chat room to load directly by ID
             'seller': {
               'id': sellerId,
               'name': message.notification?.title ?? 'Seller',
