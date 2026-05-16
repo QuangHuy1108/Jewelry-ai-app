@@ -95,10 +95,12 @@ class _NotificationScreenState extends State<NotificationScreen> {
     } else if (n.type == 'promotion') {
       Navigator.pop(context); // back to home maybe
     } else if (n.type == 'chat') {
+      final senderName = n.metadata?['senderName'] ?? n.title;
       Navigator.pushNamed(context, AppRouter.chatDetail, arguments: {
+        'chatId': n.chatId,
         'seller': {
           'id': n.sellerId ?? n.targetId,
-          'name': n.title,
+          'name': senderName,
           'avatar': ''
         }
       });

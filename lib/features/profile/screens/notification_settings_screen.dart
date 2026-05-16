@@ -71,31 +71,23 @@ class _NotificationSettingsScreenState
     if (user == null) return;
 
     try {
-      // Build dynamic deep parameter target update map mapping perfectly to enterprise schema
-      Map<String, dynamic> updateMap = {};
       if (keyPath == 'global') {
-        updateMap = {'notificationPreferences.channels.push': value};
-      } else {
-        updateMap = {'notificationPreferences.categories.$keyPath.push': value};
-      }
-
-      await _firestore.collection('users').doc(user.uid).update(updateMap);
-    } catch (_) {
-      // Document might not be structured yet, execute explicit drop-in root mapping set
-      try {
         await _firestore.collection('users').doc(user.uid).set({
           'notificationPreferences': {
-            'channels': {'push': _globalPush},
-            'categories': {
-              'orders': {'push': _ordersPush},
-              'chat': {'push': _chatPush},
-              'promotions': {'push': _promotionsPush},
-              'finance': {'push': _financePush},
-              'security': {'push': _securityPush},
-            },
-          },
+            'channels': {'push': value}
+          }
         }, SetOptions(merge: true));
-      } catch (_) {}
+      } else {
+        await _firestore.collection('users').doc(user.uid).set({
+          'notificationPreferences': {
+            'categories': {
+              keyPath: {'push': value}
+            }
+          }
+        }, SetOptions(merge: true));
+      }
+    } catch (e) {
+      debugPrint('Error updating preference: $e');
     }
   }
 
@@ -122,7 +114,7 @@ class _NotificationSettingsScreenState
                           const SizedBox(height: 16),
                           _buildSectionTitle('Global Configuration'),
                           _buildSwitchItem(
-                            'Master Push Dispatch',
+                            'Master Push Dispatch (Global Mute)',
                             _globalPush,
                             (val) {
                               setState(() => _globalPush = val);
@@ -130,17 +122,9 @@ class _NotificationSettingsScreenState
                             },
                           ),
                           const Divider(height: 32, color: Color(0xFFEEEEEE)),
-                          _buildSectionTitle('Role & Category Channels'),
+                          _buildSectionTitle('Notification Channels'),
                           _buildSwitchItem(
-                            'Order Lifecycle Updates',
-                            _ordersPush,
-                            (val) {
-                              setState(() => _ordersPush = val);
-                              _updatePreference('orders', val);
-                            },
-                          ),
-                          _buildSwitchItem(
-                            'Live Messaging & Concierge',
+                            'Chat Messages & Concierge',
                             _chatPush,
                             (val) {
                               setState(() => _chatPush = val);
@@ -148,27 +132,19 @@ class _NotificationSettingsScreenState
                             },
                           ),
                           _buildSwitchItem(
-                            'Affiliate Finance & Payouts',
-                            _financePush,
+                            'Order Status Updates',
+                            _ordersPush,
                             (val) {
-                              setState(() => _financePush = val);
-                              _updatePreference('finance', val);
+                              setState(() => _ordersPush = val);
+                              _updatePreference('orders', val);
                             },
                           ),
                           _buildSwitchItem(
-                            'Marketing Vouchers & Drops',
+                            'Marketing & Promotions',
                             _promotionsPush,
                             (val) {
                               setState(() => _promotionsPush = val);
                               _updatePreference('promotions', val);
-                            },
-                          ),
-                          _buildSwitchItem(
-                            'Account Security Alerts',
-                            _securityPush,
-                            (val) {
-                              setState(() => _securityPush = val);
-                              _updatePreference('security', val);
                             },
                           ),
                           const SizedBox(height: 40),

@@ -1,0 +1,60 @@
+﻿Analyzing jewelry_app...                                        
+
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\core\utils\luxury_toast.dart:105:47 - deprecated_member_use
+warning - Unused import: 'dart:io' - lib\features\ai_scan\screens\ai_scan_screen.dart:1:8 - unused_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\ai_scan\screens\ai_scan_screen.dart:99:41 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\ai_scan\screens\ai_scan_screen.dart:188:41 - deprecated_member_use
+   info - Parameter 'key' could be a super parameter - lib\features\auth\screens\complete_profile_screen.dart:12:9 - use_super_parameters
+   info - Don't use 'BuildContext's across async gaps - lib\features\auth\screens\complete_profile_screen.dart:99:26 - use_build_context_synchronously
+warning - The exception variable 'e' isn't used, so the 'catch' clause can be removed - lib\features\auth\screens\complete_profile_screen.dart:158:57 - unused_catch_clause
+   info - Don't use 'BuildContext's across async gaps - lib\features\auth\screens\complete_profile_screen.dart:160:42 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\auth\screens\complete_profile_screen.dart:198:42 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\auth\screens\complete_profile_screen.dart:200:45 - use_build_context_synchronously
+   info - Don't use 'BuildContext's across async gaps - lib\features\auth\screens\complete_profile_screen.dart:204:24 - use_build_context_synchronously
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\auth\screens\complete_profile_screen.dart:438:27 - deprecated_member_use
+   info - Parameter 'key' could be a super parameter - lib\features\auth\screens\new_password_screen.dart:6:9 - use_super_parameters
+   info - Type could be non-nullable - lib\features\auth\screens\sign_in_screen.dart:196:34 - unnecessary_nullable_for_final_variable_declarations
+   info - Type could be non-nullable - lib\features\auth\screens\sign_up_screen.dart:254:34 - unnecessary_nullable_for_final_variable_declarations
+   info - Statements in a for should be enclosed in a block - lib\features\auth\screens\verify_code_screen.dart:78:42 - curly_braces_in_flow_control_structures
+   info - Statements in a for should be enclosed in a block - lib\features\auth\screens\verify_code_screen.dart:79:35 - curly_braces_in_flow_control_structures
+   info - Parameter 'key' could be a super parameter - lib\features\auth\screens\welcome_screen.dart:7:9 - use_super_parameters
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\auth\screens\welcome_screen.dart:115:57 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\camera\screens\camera_screen.dart:115:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\camera\screens\camera_screen.dart:168:45 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\chat\screens\seller_chat_screen.dart:214:36 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\filter\screens\filter_screen.dart:226:51 - deprecated_member_use
+   info - Statements in an if should be enclosed in a block - lib\features\filter\widgets\advanced_filter_bottom_sheet.dart:90:25 - curly_braces_in_flow_control_structures
+   info - Statements in an if should be enclosed in a block - lib\features\filter\widgets\advanced_filter_bottom_sheet.dart:92:25 - curly_braces_in_flow_control_structures
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\filter\widgets\advanced_filter_bottom_sheet.dart:232:51 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\widgets\banner_widget.dart:28:59 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\widgets\category_list.dart:66:53 - deprecated_member_use
+warning - Unused import: '../../camera/screens/camera_screen.dart' - lib\features\home\widgets\home_header.dart:8:8 - unused_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\widgets\offer_banner.dart:101:28 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\widgets\offer_banner.dart:113:37 - deprecated_member_use
+   info - Unnecessary braces in a string interpolation - lib\features\home\widgets\popular_products_section.dart:65:28 - unnecessary_brace_in_string_interps
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\home\widgets\suggestion_dropdown.dart:41:37 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\offer\widgets\special_offer_card.dart:125:62 - deprecated_member_use
+   info - Parameter 'key' could be a super parameter - lib\features\onboarding\screens\enable_notification.dart:8:9 - use_super_parameters
+   info - Parameter 'key' could be a super parameter - lib\features\onboarding\screens\enter_location_screen.dart:10:9 - use_super_parameters
+   info - 'desiredAccuracy' is deprecated and shouldn't be used. use settings parameter with AndroidSettings, AppleSettings, WebSettings, or LocationSettings - lib\features\onboarding\screens\enter_location_screen.dart:116:63 - deprecated_member_use
+   info - Parameter 'key' could be a super parameter - lib\features\onboarding\screens\location_permission_screen.dart:9:9 - use_super_parameters
+   info - Don't use 'BuildContext's across async gaps - lib\features\onboarding\screens\location_permission_screen.dart:98:9 - use_build_context_synchronously
+   info - 'desiredAccuracy' is deprecated and shouldn't be used. use settings parameter with AndroidSettings, AppleSettings, WebSettings, or LocationSettings - lib\features\onboarding\screens\location_permission_screen.dart:104:63 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\onboarding\screens\onboarding_screen.dart:267:53 - deprecated_member_use
+   info - 'Share' is deprecated and shouldn't be used. Use SharePlus instead - lib\features\product\widgets\bottom_action_sheet.dart:36:15 - deprecated_member_use
+   info - 'share' is deprecated and shouldn't be used. Use SharePlus.instance.share() instead - lib\features\product\widgets\bottom_action_sheet.dart:36:21 - deprecated_member_use
+   info - The import of 'package:flutter/services.dart' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/material.dart' - lib\features\product\widgets\popular_product_list_item.dart:2:8 - unnecessary_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\product\widgets\product_card.dart:36:35 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\product\widgets\product_card.dart:82:47 - deprecated_member_use
+warning - Unused import: '../../../../router/app_navigation.dart' - lib\features\product\widgets\top_bar_search.dart:8:8 - unused_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\product\widgets\top_bar_search.dart:170:53 - deprecated_member_use
+   info - 'Share' is deprecated and shouldn't be used. Use SharePlus instead - lib\features\product\widgets\top_bar_search.dart:217:28 - deprecated_member_use
+   info - 'share' is deprecated and shouldn't be used. Use SharePlus.instance.share() instead - lib\features\product\widgets\top_bar_search.dart:217:34 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\product\widgets\top_bar_search.dart:252:43 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\splash\screens\splash_screen.dart:90:49 - deprecated_member_use
+warning - The value of the local variable 'complexRegex' isn't used - replace_toast.dart:13:9 - unused_local_variable
+   info - Use interpolation to compose strings and values - replace_toast.dart:49:23 - prefer_interpolation_to_compose_strings
+   info - Use interpolation to compose strings and values - replace_toast.dart:51:23 - prefer_interpolation_to_compose_strings
+   info - Don't invoke 'print' in production code - replace_toast.dart:55:7 - avoid_print
+   info - Don't invoke 'print' in production code - replace_toast.dart:60:3 - avoid_print
+

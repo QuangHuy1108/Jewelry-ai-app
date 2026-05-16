@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shimmer/shimmer.dart';
 import '../providers/product_provider.dart';
 import '../../../core/theme/app_colors.dart';
@@ -517,6 +518,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             itemCount: sellers.length,
             itemBuilder: (context, index) {
               final seller = sellers[index];
+              final currentUserUid = FirebaseAuth.instance.currentUser?.uid;
+              final isMe = (seller['userId'] != null && seller['userId'] == currentUserUid) || seller['id'] == currentUserUid;
+
               return Container(
                 width: MediaQuery.of(context).size.width * 0.7,
                 margin: const EdgeInsets.only(right: 12),
@@ -564,28 +568,30 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         ),
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.chat_bubble_outline, color: Color(0xFF333333), size: 20),
-                      onPressed: () {
-                        final productContext = {
-                          'id': product['id'] ?? '',
-                          'name': product['name'] ?? '',
-                          'image': (product['images'] as List<dynamic>?)?.firstWhere(
-                            (u) => !u.toString().endsWith('.mp4'), orElse: () => '') ?? '',
-                          'price': product['basePrice'],
-                        };
-                        Navigator.pushNamed(
-                          context,
-                          '/chat-detail',
-                          arguments: {
-                            'sellerId': seller['id'] ?? '',
-                            'sellerName': seller['name'] ?? 'Seller',
-                            'sellerAvatar': seller['avatar'] ?? '',
-                            'productContext': productContext,
-                          },
-                        );
-                      },
-                    ),
+                    isMe
+                        ? const SizedBox(width: 48, height: 48)
+                        : IconButton(
+                            icon: const Icon(Icons.chat_bubble_outline, color: Color(0xFF333333), size: 20),
+                            onPressed: () {
+                              final productContext = {
+                                'id': product['id'] ?? '',
+                                'name': product['name'] ?? '',
+                                'image': (product['images'] as List<dynamic>?)?.firstWhere(
+                                  (u) => !u.toString().endsWith('.mp4'), orElse: () => '') ?? '',
+                                'price': product['basePrice'],
+                              };
+                              Navigator.pushNamed(
+                                context,
+                                '/chat-detail',
+                                arguments: {
+                                  'sellerId': (seller['userId'] as String?) ?? (seller['id'] as String? ?? ''),
+                                  'sellerName': seller['name'] ?? 'Seller',
+                                  'sellerAvatar': seller['avatar'] ?? '',
+                                  'productContext': productContext,
+                                },
+                              );
+                            },
+                          ),
                   ],
                 ),
               );

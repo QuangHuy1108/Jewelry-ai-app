@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/notification_model.dart';
@@ -77,7 +78,7 @@ class NotificationProvider extends ChangeNotifier {
             .update({'isRead': true, 'readAt': FieldValue.serverTimestamp()});
 
         // Broadcast telemetry lifecycle packet down to decoupled clusters
-        _logTelemetryEvent(id, 'OPENED');
+        logNotificationEvent(id, 'OPENED');
       }
     }
   }
@@ -146,26 +147,39 @@ class NotificationProvider extends ChangeNotifier {
             .delete();
 
         // Broadcast dismissal telemetry event downstream
-        _logTelemetryEvent(id, 'DISMISSED');
+        logNotificationEvent(id, 'DISMISSED');
       }
     }
   }
 
-  Future<void> _logTelemetryEvent(
+  Future<void> logNotificationEvent(
     String notificationId,
     String eventType,
   ) async {
     final user = _auth.currentUser;
     if (user == null) return;
     try {
+      String platform = 'Unknown';
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        platform = 'Android';
+      } else if (defaultTargetPlatform == TargetPlatform.iOS) {
+        platform = 'iOS';
+      } else if (defaultTargetPlatform == TargetPlatform.linux || 
+                 defaultTargetPlatform == TargetPlatform.macOS || 
+                 defaultTargetPlatform == TargetPlatform.windows) {
+        platform = 'Desktop';
+      }
+
       await _firestore.collection('notification_events').add({
         'notificationId': notificationId,
         'userId': user.uid,
         'eventType': eventType,
-        'clientPlatform': 'Flutter',
+        'clientPlatform': platform,
         'timestamp': FieldValue.serverTimestamp(),
       });
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Telemetry Error: Failed to log event $eventType for $notificationId: $e');
+    }
   }
 
   Future<void> undoDelete(NotificationItem item) async {

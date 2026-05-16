@@ -12,6 +12,7 @@ class NotificationItem {
   final String? sellerId;
   final String priority;
   final bool isPinned;
+  final String? chatId;
 
   // Enterprise MVP fields
   final String? image;
@@ -41,6 +42,7 @@ class NotificationItem {
     this.role,
     this.level,
     this.metadata,
+    this.chatId,
   });
 
   static String _getDefaultPriority(String? type) {
@@ -94,6 +96,7 @@ class NotificationItem {
       role: json['role'],
       level: json['level'],
       metadata: json['metadata'] as Map<String, dynamic>?,
+      chatId: json['chatId'],
     );
   }
 
@@ -116,6 +119,7 @@ class NotificationItem {
       if (role != null) 'role': role,
       if (level != null) 'level': level,
       if (metadata != null) 'metadata': metadata,
+      if (chatId != null) 'chatId': chatId,
     };
   }
 
@@ -138,6 +142,7 @@ class NotificationItem {
     String? role,
     String? level,
     Map<String, dynamic>? metadata,
+    String? chatId,
   }) {
     return NotificationItem(
       id: id ?? this.id,
@@ -158,6 +163,7 @@ class NotificationItem {
       role: role ?? this.role,
       level: level ?? this.level,
       metadata: metadata ?? this.metadata,
+      chatId: chatId ?? this.chatId,
     );
   }
 }

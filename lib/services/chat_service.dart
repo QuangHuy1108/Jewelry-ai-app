@@ -32,39 +32,42 @@ class ChatService {
 
   // ─── Mutations ─────────────────────────────────────────────────────────────
 
+  /// Standardizes ChatRoom ID generation by sorting UIDs alphabetically.
+  /// Ensures symmetric IDs (A_B is the same as B_A).
+  String getChatRoomId(String uid1, String uid2) {
+    List<String> ids = [uid1, uid2];
+    ids.sort(); // Sort A-Z
+    return ids.join('_');
+  }
+
   /// Creates a new chat or returns the existing one.
-  /// Matches on userId + sellerId + optional productId.
+  /// Matches on userId + sellerId.
   Future<String> createOrGetChat({
     required String userId,
     required String sellerId,
     String? productId,
   }) async {
-    // Look for an existing chat
-    Query query = _db
-        .collection('chats')
-        .where('userId', isEqualTo: userId)
-        .where('sellerId', isEqualTo: sellerId);
-
-    if (productId != null) {
-      query = query.where('productId', isEqualTo: productId);
+    final chatId = getChatRoomId(userId, sellerId);
+    final docRef = _db.collection('chats').doc(chatId);
+    
+    final doc = await docRef.get();
+    if (doc.exists) {
+      return chatId;
     }
 
-    final existing = await query.limit(1).get();
-    if (existing.docs.isNotEmpty) {
-      return existing.docs.first.id;
-    }
-
-    // Create a new chat document
+    // Create a new chat document with the deterministic ID
     final now = DateTime.now();
-    final docRef = await _db.collection('chats').add({
+    await docRef.set({
       'userId': userId,
       'sellerId': sellerId,
       'productId': productId,
       'lastMessage': '',
       'lastMessageTime': Timestamp.fromDate(now),
       'participants': [userId, sellerId],
-    });
-    return docRef.id;
+      'deletedBy': [],
+    }, SetOptions(merge: true));
+    
+    return chatId;
   }
 
   /// Sends a message and updates the chat's lastMessage metadata.
@@ -162,7 +165,13 @@ class ChatService {
   /// Task 4: Block a user
   Future<void> blockUser(String currentUserId, String targetUid) async {
     await _db.collection('users').doc(currentUserId).update({
-      'blockedUids': FieldValue.arrayUnion([targetUid]),
+      'blockedUsers': FieldValue.arrayUnion([targetUid]),
+    });
+  }
+
+  Future<void> unblockUser(String currentUserId, String targetUid) async {
+    await _db.collection('users').doc(currentUserId).update({
+      'blockedUsers': FieldValue.arrayRemove([targetUid]),
     });
   }
 

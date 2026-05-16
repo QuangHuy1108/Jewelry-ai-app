@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import '../models/seller_model.dart';
 import '../providers/product_provider.dart';
@@ -90,6 +91,8 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
       followersCount: (data['followersCount'] as num?)?.toInt() ?? 0,
       favoritesCount: (data['favoritesCount'] as num?)?.toInt() ?? 0,
       ratings: ratings,
+      isFavorite: data['isFavorite'] ?? false,
+      userId: data['userId'],
       bestSellingProducts: _bestSellingProducts,
     );
   }
@@ -113,6 +116,8 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
                   followersCount: _seller!.followersCount,
                   favoritesCount: _seller!.favoritesCount,
                   ratings: _seller!.ratings,
+                  isFavorite: _seller!.isFavorite,
+                  userId: _seller!.userId,
                   bestSellingProducts: _bestSellingProducts,
                 )
               : null;
@@ -204,35 +209,38 @@ class _SellerProfileScreenState extends State<SellerProfileScreen> {
         Positioned(
           top: MediaQuery.of(context).padding.top + 10,
           right: 10,
-          child: CircleAvatar(
-            backgroundColor: Colors.black26,
-            child: IconButton(
-              icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
-              onPressed: () {
-                final product = context.read<ProductProvider>().product;
-                Map<String, dynamic>? productCtx;
-                if (product.isNotEmpty) {
-                  final images = product['images'] as List<dynamic>?;
-                  final firstImage = images?.firstWhere(
-                    (u) => !u.toString().endsWith('.mp4'),
-                    orElse: () => '',
-                  ) ?? '';
-                  productCtx = {
-                    'id': product['id'] ?? '',
-                    'name': product['name'] ?? '',
-                    'image': firstImage,
-                    'price': product['basePrice'],
-                  };
-                }
-                Navigator.pushNamed(context, '/chat-detail', arguments: {
-                  'sellerId': _seller!.id,
-                  'sellerName': _seller!.name,
-                  'sellerAvatar': _seller!.avatar,
-                  'productContext': productCtx,
-                });
-              },
-            ),
-          ),
+          child: (FirebaseAuth.instance.currentUser?.uid == _seller!.userId || 
+                  (FirebaseAuth.instance.currentUser?.uid != null && _seller!.userId == null && FirebaseAuth.instance.currentUser?.uid == _seller!.id))
+              ? const SizedBox.shrink()
+              : CircleAvatar(
+                  backgroundColor: Colors.black26,
+                  child: IconButton(
+                    icon: const Icon(Icons.chat_bubble_outline, color: Colors.white),
+                    onPressed: () {
+                      final product = context.read<ProductProvider>().product;
+                      Map<String, dynamic>? productCtx;
+                      if (product.isNotEmpty) {
+                        final images = product['images'] as List<dynamic>?;
+                        final firstImage = images?.firstWhere(
+                          (u) => !u.toString().endsWith('.mp4'),
+                          orElse: () => '',
+                        ) ?? '';
+                        productCtx = {
+                          'id': product['id'] ?? '',
+                          'name': product['name'] ?? '',
+                          'image': firstImage,
+                          'price': product['basePrice'],
+                        };
+                      }
+                      Navigator.pushNamed(context, '/chat-detail', arguments: {
+                        'sellerId': _seller!.id,
+                        'sellerName': _seller!.name,
+                        'sellerAvatar': _seller!.avatar,
+                        'productContext': productCtx,
+                      });
+                    },
+                  ),
+                ),
         ),
         // Avatar
         Positioned(

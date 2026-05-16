@@ -12,6 +12,7 @@ class Seller {
   int favoritesCount;
   bool isFollowing;
   bool isFavorite;
+  final String? userId; // Auth UID
   final List<Map<String, dynamic>> bestSellingProducts;
 
   Seller({
@@ -28,6 +29,7 @@ class Seller {
     required this.favoritesCount,
     this.isFollowing = false,
     this.isFavorite = false,
+    this.userId,
     required this.bestSellingProducts,
   });
 

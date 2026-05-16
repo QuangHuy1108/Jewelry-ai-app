@@ -48,7 +48,10 @@ class _ChatListScreenState extends State<ChatListScreen> {
     final uid = provider.currentUserId;
     
     // Filter by counterpart name from cached profiles
-    final allChats = provider.userChats;
+    // Filter out empty chats (no messages)
+    final allChats = provider.userChats.where((c) => c.lastMessage.isNotEmpty).toList();
+    
+    // Filter by search query
     final filteredChats = query.isEmpty
         ? allChats
         : allChats.where((c) {
@@ -263,7 +266,9 @@ class _ChatListScreenState extends State<ChatListScreen> {
                       children: [
                         Expanded(
                           child: Text(
-                            chat.lastMessage.isEmpty ? 'Conversation started' : chat.lastMessage,
+                            chat.lastMessageSenderId == provider.currentUserId
+                                ? 'You: ${chat.lastMessage}'
+                                : '$otherName: ${chat.lastMessage}',
                             style: TextStyle(
                               fontSize: 13, 
                               color: isUnread ? const Color(0xFF222222) : const Color(0xFF777777),

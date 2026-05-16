@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../providers/chat_provider.dart';
 import '../models/chat_model.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../router/app_router.dart';
+import '../../../services/chat_service.dart';
 
 class ChatDetailScreen extends StatefulWidget {
   const ChatDetailScreen({super.key});
@@ -28,10 +28,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   bool _initializing = false;
   MessageModel? _replyingTo;
+  ChatProvider? _chatProvider;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _chatProvider ??= context.read<ChatProvider>();
     if (_initializing) return;
     final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     if (args == null) return;
@@ -44,12 +46,19 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     _productContext = args['productContext'] as Map<String, dynamic>?;
 
     final preResolvedChatId = args['chatId'] as String?;
-    if (preResolvedChatId != null) {
+    if (preResolvedChatId != null && preResolvedChatId.isNotEmpty) {
       _chatId = preResolvedChatId;
       Future.microtask(() {
         if (mounted) context.read<ChatProvider>().openChatById(preResolvedChatId);
       });
     } else if (_sellerId != null) {
+      // Calculate symmetric ID immediately to avoid split-brain
+      final currentUserId = context.read<ChatProvider>().currentUserId;
+      if (currentUserId.isNotEmpty) {
+        final symmetricId = ChatService().getChatRoomId(currentUserId, _sellerId!);
+        _chatId = symmetricId;
+      }
+      
       final productId = _productContext?['id'] as String?;
       Future.microtask(() async {
         if (!mounted) return;
@@ -60,10 +69,49 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           );
           if (mounted) setState(() => _chatId = chatId);
         } catch (e) {
-          debugPrint('Error opening chat: ');
+          debugPrint('Error opening chat: $e');
           if (mounted) Navigator.pop(context);
         }
       });
+    }
+
+    // Phase 2: Dynamic Name Resolution
+    if (_sellerName == null || _sellerName == 'Seller' || _sellerName == 'Product Owner') {
+      _resolveSenderName();
+    }
+  }
+
+  Future<void> _resolveSenderName() async {
+    final idToFetch = _sellerId;
+    if (idToFetch == null) return;
+
+    try {
+      // 1. Try sellers collection
+      final sellerDoc = await FirebaseFirestore.instance.collection('sellers').doc(idToFetch).get();
+      if (sellerDoc.exists) {
+        final data = sellerDoc.data();
+        if (mounted) {
+          setState(() {
+            _sellerName = data?['name'] ?? data?['fullName'];
+            _sellerAvatar = data?['avatar'];
+          });
+          return;
+        }
+      }
+
+      // 2. Try users collection
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(idToFetch).get();
+      if (userDoc.exists) {
+        final data = userDoc.data();
+        if (mounted) {
+          setState(() {
+            _sellerName = data?['name'] ?? data?['fullName'] ?? 'User';
+            _sellerAvatar = data?['avatar'];
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error resolving sender name: $e');
     }
   }
 
@@ -71,6 +119,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   void dispose() {
     _msgController.dispose();
     _scrollController.dispose();
+    // Clear active chat state so new messages aren't auto-read while list is open
+    _chatProvider?.closeActiveChat();
     super.dispose();
   }
 
@@ -150,7 +200,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                           .doc(_chatId)
                           .collection('messages')
                           .orderBy('createdAt', descending: true)
-                          .snapshots(),
+                          .snapshots(includeMetadataChanges: true),
                       builder: (context, snapshot) {
                         if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
                           return const Center(child: CircularProgressIndicator(color: Color(0xFF808080)));
@@ -165,19 +215,23 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                           items.add(msg);
                           
                           bool addDate = false;
+                          final msgTime = msg.createdAt;
+                          
                           if (i == messages.length - 1) {
                             addDate = true;
                           } else {
                             final nextMsg = messages[i + 1];
-                            final msgDate = DateTime(msg.createdAt.year, msg.createdAt.month, msg.createdAt.day);
-                            final nextMsgDate = DateTime(nextMsg.createdAt.year, nextMsg.createdAt.month, nextMsg.createdAt.day);
+                            final nextMsgTime = nextMsg.createdAt;
+                            
+                            final msgDate = DateTime(msgTime.year, msgTime.month, msgTime.day);
+                            final nextMsgDate = DateTime(nextMsgTime.year, nextMsgTime.month, nextMsgTime.day);
                             if (msgDate != nextMsgDate) {
                               addDate = true;
                             }
                           }
                           
                           if (addDate) {
-                            items.add(DateTime(msg.createdAt.year, msg.createdAt.month, msg.createdAt.day));
+                            items.add(DateTime(msgTime.year, msgTime.month, msgTime.day));
                           }
                         }
 
@@ -211,7 +265,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                     ),
             ),
             if (_replyingTo != null) _buildReplyPreview(),
-            _buildInputBar(),
+            (_sellerId != null && provider.isBlocked(_sellerId!))
+                ? _buildBlockedInput()
+                : _buildInputBar(),
           ],
         ),
       ),
@@ -341,6 +397,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 
   PreferredSizeWidget _buildHeader() {
+    final provider = context.read<ChatProvider>();
     return PreferredSize(
       preferredSize: const Size.fromHeight(100),
       child: Container(
@@ -392,7 +449,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(_sellerName ?? 'Seller', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          Text(
+                            _sellerName ?? '...', 
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white), 
+                            maxLines: 1, 
+                            overflow: TextOverflow.ellipsis
+                          ),
                           const Text('Online', style: TextStyle(fontSize: 12, color: Colors.white70)),
                         ],
                       ),
@@ -403,14 +465,23 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               PopupMenuButton<String>(
                 icon: const Icon(Icons.more_vert, color: Colors.white),
                 onSelected: (value) {
-                  if (value == 'block') _blockUser();
+                  if (value == 'block') {
+                    if (_sellerId != null && provider.amIBlocking(_sellerId!)) {
+                      provider.unblockUser(_sellerId!);
+                    } else {
+                      _blockUser();
+                    }
+                  }
                 },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'block',
-                    child: Text('Block User', style: TextStyle(color: Colors.red)),
-                  ),
-                ],
+                itemBuilder: (context) {
+                  final isBlocked = _sellerId != null && provider.amIBlocking(_sellerId!);
+                  return [
+                    PopupMenuItem(
+                      value: 'block',
+                      child: Text(isBlocked ? 'Unblock User' : 'Block User', style: TextStyle(color: isBlocked ? Colors.blue : Colors.red)),
+                    ),
+                  ];
+                },
               ),
             ],
           ),
@@ -474,7 +545,19 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   else
                     _buildBubble(msg.text, isMe),
                   const SizedBox(height: 4),
-                  Text(time, style: const TextStyle(fontSize: 11, color: Color(0xFF999999))),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(time, style: const TextStyle(fontSize: 11, color: Color(0xFF999999))),
+                      if (isMe && messages.isNotEmpty && msg.id == messages.first.id) ...[
+                        const SizedBox(width: 6),
+                        Text(
+                          msg.isRead ? 'Seen' : 'Sent',
+                          style: const TextStyle(fontSize: 11, color: Color(0xFFBDBDBD), fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -586,6 +669,23 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         boxShadow: isMe ? [] : [const BoxShadow(color: Color(0x06000000), offset: Offset(0, 2), blurRadius: 4)],
       ),
       child: Text(text, style: TextStyle(fontSize: 15, color: isMe ? Colors.white : const Color(0xFF333333), height: 1.4)),
+    );
+  }
+
+  Widget _buildBlockedInput() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF5F5F5),
+        border: Border(top: BorderSide(color: Color(0xFFEEEEEE))),
+      ),
+      child: const Center(
+        child: Text(
+          'You cannot reply to this chat.',
+          style: TextStyle(fontSize: 14, color: Color(0xFF999999), fontWeight: FontWeight.w500),
+        ),
+      ),
     );
   }
 

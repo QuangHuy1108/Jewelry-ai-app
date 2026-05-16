@@ -49,6 +49,33 @@ class ChatProvider extends ChangeNotifier {
     }
   }
 
+  /// Checks if either participant has blocked the other.
+  bool isBlocked(String targetUid) {
+    final uid = currentUserId;
+    if (uid.isEmpty) return false;
+
+    // Check if I blocked them
+    final myProfile = _profileCache[uid];
+    final myBlocked = myProfile?['blockedUsers'] as List<dynamic>? ?? [];
+    if (myBlocked.contains(targetUid)) return true;
+
+    // Check if they blocked me
+    final theirProfile = _profileCache[targetUid];
+    final theirBlocked = theirProfile?['blockedUsers'] as List<dynamic>? ?? [];
+    if (theirBlocked.contains(uid)) return true;
+
+    return false;
+  }
+
+  /// Checks if the current user has specifically blocked the target.
+  bool amIBlocking(String targetUid) {
+    final uid = currentUserId;
+    if (uid.isEmpty) return false;
+    final myProfile = _profileCache[uid];
+    final myBlocked = myProfile?['blockedUsers'] as List<dynamic>? ?? [];
+    return myBlocked.contains(targetUid);
+  }
+
   // ─── Init ───────────────────────────────────────────────────────────────────
 
   /// Start listening for user's chat list. Should be called when auth state changes.
@@ -58,6 +85,9 @@ class ChatProvider extends ChangeNotifier {
 
     _isLoadingChats = true;
     notifyListeners();
+
+    // Cache current user profile for blocked status check
+    _fetchProfile(uid);
 
     _chatListSub?.cancel();
     _chatListSub = _service.getUserChats(uid).listen(
@@ -84,7 +114,14 @@ class ChatProvider extends ChangeNotifier {
 
   void stopListening() {
     _chatListSub?.cancel();
+    closeActiveChat();
+  }
+
+  void closeActiveChat() {
+    _activeChatId = null;
     _messagesSub?.cancel();
+    _activeMessages = [];
+    notifyListeners();
   }
 
   // ─── Chat Session ───────────────────────────────────────────────────────────
@@ -206,7 +243,35 @@ class ChatProvider extends ChangeNotifier {
   Future<void> blockUser(String targetUid) async {
     final uid = currentUserId;
     if (uid.isEmpty) return;
+    
+    // Update local cache for immediate UI feedback
+    final myProfile = _profileCache[uid] ?? {};
+    final myBlocked = List<String>.from(myProfile['blockedUsers'] as List<dynamic>? ?? []);
+    if (!myBlocked.contains(targetUid)) {
+      myBlocked.add(targetUid);
+      myProfile['blockedUsers'] = myBlocked;
+      _profileCache[uid] = myProfile;
+      notifyListeners();
+    }
+
     await _service.blockUser(uid, targetUid);
+  }
+
+  Future<void> unblockUser(String targetUid) async {
+    final uid = currentUserId;
+    if (uid.isEmpty) return;
+
+    // Update local cache for immediate UI feedback
+    final myProfile = _profileCache[uid] ?? {};
+    final myBlocked = List<String>.from(myProfile['blockedUsers'] as List<dynamic>? ?? []);
+    if (myBlocked.contains(targetUid)) {
+      myBlocked.remove(targetUid);
+      myProfile['blockedUsers'] = myBlocked;
+      _profileCache[uid] = myProfile;
+      notifyListeners();
+    }
+
+    await _service.unblockUser(uid, targetUid);
   }
 
   // ─── Helpers ────────────────────────────────────────────────────────────────

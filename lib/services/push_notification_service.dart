@@ -132,6 +132,8 @@ class PushNotificationService {
     final type = parts[0];
     final targetId = parts[1];
     final deepLink = parts.length > 2 ? parts[2] : null;
+    final senderName = parts.length > 3 ? parts[3] : 'Seller';
+    final chatId = parts.length > 4 ? parts[4] : null;
 
     final currentState = AppRouter.navigatorKey.currentState;
     if (currentState == null) return;
@@ -144,7 +146,11 @@ class PushNotificationService {
         final sellerId = deepLink.split('/').last;
         currentState.pushNamed(
           AppRouter.chatDetail,
-          arguments: {'sellerId': sellerId, 'sellerName': 'Seller'},
+          arguments: {
+            'sellerId': sellerId,
+            'sellerName': senderName,
+            'chatId': chatId,
+          },
         );
         return;
       }
@@ -155,7 +161,11 @@ class PushNotificationService {
         if (targetId.isNotEmpty) {
           currentState.pushNamed(
             AppRouter.chatDetail,
-            arguments: {'sellerId': targetId, 'sellerName': 'Seller'},
+            arguments: {
+              'sellerId': targetId,
+              'sellerName': senderName,
+              'chatId': chatId,
+            },
           );
         }
         break;
@@ -252,9 +262,10 @@ class PushNotificationService {
     final type = payload['type'] ?? 'unknown';
     final targetId = payload['targetId'] ?? payload['sellerId'] ?? '';
     final deepLink = payload['deepLink'] ?? '';
-
-    // Payload string for navigation on tap: "type|targetId|deepLink"
-    final payloadString = '$type|$targetId|$deepLink';
+    final senderName = payload['senderName'] ?? notification.title ?? 'Seller';
+    final chatId = payload['chatId'] ?? '';
+    // Payload string for navigation on tap: "type|targetId|deepLink|senderName|chatId"
+    final payloadString = '$type|$targetId|$deepLink|$senderName|$chatId';
 
     const androidDetails = AndroidNotificationDetails(
       'high_importance_channel',
@@ -349,6 +360,13 @@ class PushNotificationService {
 
   void _handleNavigationData(RemoteMessage message) {
     final payload = message.data;
+    final context = AppRouter.navigatorKey.currentContext;
+    
+    // Log telemetry: OPENED
+    if (context != null && message.messageId != null) {
+      context.read<NotificationProvider>().logNotificationEvent(message.messageId!, 'OPENED');
+    }
+
     if (payload.isEmpty) return;
 
     final currentState = AppRouter.navigatorKey.currentState;
@@ -357,6 +375,11 @@ class PushNotificationService {
     // Enterprise Deep Linking parsing MVP
     final deepLink = payload['deepLink'] as String?;
     if (deepLink != null && deepLink.isNotEmpty) {
+      // Log telemetry: ACTION_CLICKED
+      if (context != null && message.messageId != null) {
+        context.read<NotificationProvider>().logNotificationEvent(message.messageId!, 'ACTION_CLICKED');
+      }
+
       // If a specific deep link path is provided, route directly to it if mapped
       if (deepLink.startsWith('/orders/')) {
         currentState.pushNamed(AppRouter.myOrders);
@@ -379,6 +402,9 @@ class PushNotificationService {
     }
 
     final type = payload['type'];
+    final senderName = payload['senderName'] ?? message.notification?.title ?? 'Seller';
+    final chatId = payload['chatId'] as String?;
+
     switch (type) {
       case 'chat':
         final sellerId = payload['targetId'] ?? payload['sellerId'];
@@ -386,9 +412,10 @@ class PushNotificationService {
           currentState.pushNamed(
             AppRouter.chatDetail,
             arguments: {
+              'chatId': chatId,
               'seller': {
                 'id': sellerId,
-                'name': message.notification?.title ?? 'Seller',
+                'name': senderName,
                 'avatar': '',
               },
             },
