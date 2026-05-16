@@ -91,7 +91,9 @@ class PushNotificationService {
 
   Future<void> _initLocalNotifications() async {
     // Android initialization
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
 
     // iOS initialization
     const darwinSettings = DarwinInitializationSettings(
@@ -111,9 +113,10 @@ class PushNotificationService {
     );
 
     // Create the Android notification channel at runtime
-    final androidPlugin =
-        _localNotifications.resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
+    final androidPlugin = _localNotifications
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     if (androidPlugin != null) {
       await androidPlugin.createNotificationChannel(_channel);
     }
@@ -270,7 +273,8 @@ class PushNotificationService {
     const androidDetails = AndroidNotificationDetails(
       'high_importance_channel',
       'Important Notifications',
-      channelDescription: 'Notifications for orders, messages, and important updates',
+      channelDescription:
+          'Notifications for orders, messages, and important updates',
       importance: Importance.high,
       priority: Priority.high,
       playSound: true,
@@ -289,7 +293,8 @@ class PushNotificationService {
     );
 
     // Use hashCode of messageId for unique int ID
-    final id = message.messageId?.hashCode ?? DateTime.now().millisecondsSinceEpoch;
+    final id =
+        message.messageId?.hashCode ?? DateTime.now().millisecondsSinceEpoch;
 
     await _localNotifications.show(
       id: id,
@@ -361,10 +366,13 @@ class PushNotificationService {
   void _handleNavigationData(RemoteMessage message) {
     final payload = message.data;
     final context = AppRouter.navigatorKey.currentContext;
-    
+
     // Log telemetry: OPENED
     if (context != null && message.messageId != null) {
-      context.read<NotificationProvider>().logNotificationEvent(message.messageId!, 'OPENED');
+      context.read<NotificationProvider>().logNotificationEvent(
+        message.messageId!,
+        'OPENED',
+      );
     }
 
     if (payload.isEmpty) return;
@@ -377,7 +385,10 @@ class PushNotificationService {
     if (deepLink != null && deepLink.isNotEmpty) {
       // Log telemetry: ACTION_CLICKED
       if (context != null && message.messageId != null) {
-        context.read<NotificationProvider>().logNotificationEvent(message.messageId!, 'ACTION_CLICKED');
+        context.read<NotificationProvider>().logNotificationEvent(
+          message.messageId!,
+          'ACTION_CLICKED',
+        );
       }
 
       // If a specific deep link path is provided, route directly to it if mapped
@@ -402,7 +413,8 @@ class PushNotificationService {
     }
 
     final type = payload['type'];
-    final senderName = payload['senderName'] ?? message.notification?.title ?? 'Seller';
+    final senderName =
+        payload['senderName'] ?? message.notification?.title ?? 'Seller';
     final chatId = payload['chatId'] as String?;
 
     switch (type) {
@@ -413,11 +425,7 @@ class PushNotificationService {
             AppRouter.chatDetail,
             arguments: {
               'chatId': chatId,
-              'seller': {
-                'id': sellerId,
-                'name': senderName,
-                'avatar': '',
-              },
+              'seller': {'id': sellerId, 'name': senderName, 'avatar': ''},
             },
           );
         }
