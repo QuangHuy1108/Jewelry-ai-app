@@ -10,30 +10,33 @@ class NotificationProvider extends ChangeNotifier {
 
   List<NotificationItem> _notifications = [];
   StreamSubscription<QuerySnapshot>? _subscription;
+  StreamSubscription<User?>? _authSubscription;
 
   List<NotificationItem> get notifications => _notifications;
   int get unreadCount => _notifications.where((n) => !n.isRead).length;
 
   NotificationProvider() {
-    _startListening();
+    _authSubscription = _auth.authStateChanges().listen((user) {
+      _subscription?.cancel();
+      _notifications = [];
+      if (user != null) {
+        _startListening(user.uid);
+      }
+      notifyListeners();
+    });
   }
 
   @override
   void dispose() {
     _subscription?.cancel();
+    _authSubscription?.cancel();
     super.dispose();
   }
 
-  void _startListening() {
-    final user = _auth.currentUser;
-    if (user == null) {
-      // No authenticated user — notifications list remains empty.
-      return;
-    }
-
+  void _startListening(String uid) {
     _subscription = _firestore
         .collection('users')
-        .doc(user.uid)
+        .doc(uid)
         .collection('notifications')
         .orderBy('createdAt', descending: true)
         .snapshots()

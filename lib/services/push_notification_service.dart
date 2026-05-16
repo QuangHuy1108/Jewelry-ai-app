@@ -50,8 +50,8 @@ class PushNotificationService {
     // 2. Initialize flutter_local_notifications
     await _initLocalNotifications();
 
-    // 3. Setup token
-    await _setupToken();
+    // 3. Setup token sync with auth state
+    _setupTokenSync();
 
     // 4. Setup background handler
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
@@ -170,17 +170,26 @@ class PushNotificationService {
     }
   }
 
-  Future<void> _setupToken() async {
-    try {
-      String? token = await _fcm.getToken();
-      debugPrint("═══ FCM TOKEN ═══\n$token\n═════════════════");
-      if (token != null) {
-        await _saveTokenToFirestore(token);
+  void _setupTokenSync() {
+    _auth.authStateChanges().listen((user) async {
+      if (user != null) {
+        try {
+          String? token = await _fcm.getToken();
+          debugPrint("═══ FCM TOKEN ═══\n$token\n═════════════════");
+          if (token != null) {
+            await _saveTokenToFirestore(token);
+          }
+        } catch (e) {
+          debugPrint("Failed to get FCM token: $e");
+        }
       }
-      _fcm.onTokenRefresh.listen(_saveTokenToFirestore);
-    } catch (e) {
-      debugPrint("Failed to get FCM token: $e");
-    }
+    });
+
+    _fcm.onTokenRefresh.listen((token) {
+      if (_auth.currentUser != null) {
+        _saveTokenToFirestore(token);
+      }
+    });
   }
 
   Future<void> _saveTokenToFirestore(String token) async {

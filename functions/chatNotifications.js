@@ -43,9 +43,11 @@ exports.onChatMessageCreated = functions.firestore
         const sellerDoc = await db.collection('sellers').doc(sellerId).get();
         if (sellerDoc.exists && sellerDoc.data().userId) {
           recipientUserId = sellerDoc.data().userId;
+          console.log(`Seller found through sellers table. Recipient User ID: ${recipientUserId}`);
         } else {
-          console.warn(`Seller document ${sellerId} not found or missing userId — skipping.`);
-          return null;
+          // [NEW] Fallback: If userId is missing in sellers table, or seller doesn't exist, assume sellerId is the User ID.
+          recipientUserId = sellerId;
+          console.log(`Used fallback sellerId as User ID. Recipient User ID: ${recipientUserId}`);
         }
       } else {
         // Seller sent the message, recipient is the Buyer.
@@ -112,8 +114,19 @@ exports.onChatMessageCreated = functions.firestore
           });
           console.log(`FCM sent to ${recipientUserId} for chat ${chatId}`);
         } catch (fcmErr) {
-          // Token may be stale — log but don't fail the function
           console.warn(`FCM send failed for ${recipientUserId}:`, fcmErr.message);
+          // Delete token if it's invalid or unregistered
+          if (
+            fcmErr.code === 'messaging/invalid-registration-token' ||
+            fcmErr.code === 'messaging/registration-token-not-registered' ||
+            fcmErr.message.includes('not registered') ||
+            fcmErr.message.includes('InvalidRegistration')
+          ) {
+            console.log(`Deleting invalid token for user ${recipientUserId}`);
+            await db.collection('users').doc(recipientUserId).update({
+              fcmToken: admin.firestore.FieldValue.delete(),
+            });
+          }
         }
       } else {
         console.log(`No FCM token for recipient ${recipientUserId} — skipping push.`);

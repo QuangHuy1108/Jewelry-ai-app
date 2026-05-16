@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../wishlist/providers/wishlist_provider.dart';
 import '../../../shared/widgets/cart_badge_icon.dart';
 import '../../chat/screens/seller_chat_screen.dart';
+import '../../../router/app_router.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:share_plus/share_plus.dart';
 
 class BottomActionSheet extends StatelessWidget {
@@ -36,11 +39,35 @@ class BottomActionSheet extends StatelessWidget {
               Share.share('Check out this luxurious ${product['name']}!');
             },
           ),
-          _buildActionItem(
-            icon: Icons.chat_bubble_outline,
-            label: 'Chat',
-            onTap: () {
-              Navigator.push(context, MaterialPageRoute(builder: (_) => SellerChatScreen(initialProduct: product, sellerName: 'Support', sellerAvatar: '')));
+          FutureBuilder<DocumentSnapshot>(
+            future: FirebaseFirestore.instance.collection('sellers').doc(product['sellerId']).get(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData || snapshot.data == null) return const SizedBox.shrink();
+              final sellerData = snapshot.data!.data() as Map<String, dynamic>?;
+              final sellerUserId = sellerData?['userId'] as String?;
+              
+              // Task 1: Hide button if the logged-in user is the seller of the product
+              if (FirebaseAuth.instance.currentUser?.uid == sellerUserId) {
+                return const SizedBox.shrink();
+              }
+              
+              return _buildActionItem(
+                icon: Icons.chat_bubble_outline,
+                label: 'Chat',
+                onTap: () {
+                  // Task 2: Pass sellerUserId instead of product['sellerId']
+                  Navigator.pushNamed(
+                    context, 
+                    AppRouter.chatDetail,
+                    arguments: {
+                      'sellerId': sellerUserId ?? product['sellerId'],
+                      'sellerName': sellerData?['name'] ?? 'Support',
+                      'sellerAvatar': sellerData?['avatar'] ?? '',
+                      'productContext': product,
+                    }
+                  );
+                },
+              );
             },
           ),
           _buildActionItem(

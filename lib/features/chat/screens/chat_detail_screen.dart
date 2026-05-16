@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 import '../providers/chat_provider.dart';
 import '../models/chat_model.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../router/app_router.dart';
 
 class ChatDetailScreen extends StatefulWidget {
   const ChatDetailScreen({super.key});
@@ -16,46 +20,36 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _isTyping = false;
 
-  // Passed via route arguments
   String? _chatId;
   String? _sellerId;
   String? _sellerName;
   String? _sellerAvatar;
-  Map<String, dynamic>? _productContext; // { id, name, image, price }
+  Map<String, dynamic>? _productContext;
 
   bool _initializing = false;
-
-  @override
-  void initState() {
-    super.initState();
-  }
+  MessageModel? _replyingTo;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_initializing) return; // Guard: only parse args once.
+    if (_initializing) return;
     final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     if (args == null) return;
     _initializing = true;
 
-    // Support both flat keys (new standard) and legacy nested 'seller' map.
     final sellerMap = args['seller'] as Map<String, dynamic>?;
     _sellerId = args['sellerId'] as String? ?? sellerMap?['id'] as String?;
     _sellerName = args['sellerName'] as String? ?? sellerMap?['name'] as String?;
     _sellerAvatar = args['sellerAvatar'] as String? ?? sellerMap?['avatar'] as String?;
     _productContext = args['productContext'] as Map<String, dynamic>?;
 
-    // If chatId was already pre-resolved (e.g., from chat list), use it directly.
     final preResolvedChatId = args['chatId'] as String?;
     if (preResolvedChatId != null) {
       _chatId = preResolvedChatId;
       Future.microtask(() {
-        if (mounted) {
-          context.read<ChatProvider>().openChatById(preResolvedChatId);
-        }
+        if (mounted) context.read<ChatProvider>().openChatById(preResolvedChatId);
       });
     } else if (_sellerId != null) {
-      // Otherwise create/get chat from sellerId + optional productId.
       final productId = _productContext?['id'] as String?;
       Future.microtask(() async {
         if (!mounted) return;
@@ -66,13 +60,8 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
           );
           if (mounted) setState(() => _chatId = chatId);
         } catch (e) {
-          debugPrint('Error opening chat: $e');
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Failed to open chat: $e')),
-            );
-            Navigator.pop(context); // Go back if we can't open the chat
-          }
+          debugPrint('Error opening chat: ');
+          if (mounted) Navigator.pop(context);
         }
       });
     }
@@ -89,20 +78,49 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     final text = _msgController.text.trim();
     if (text.isEmpty) return;
     HapticFeedback.lightImpact();
-    context.read<ChatProvider>().sendMessage(text);
+    context.read<ChatProvider>().sendMessage(
+      text,
+      replyToId: _replyingTo?.id,
+    );
     _msgController.clear();
-    setState(() => _isTyping = false);
-    // Scroll to bottom after send
+    setState(() {
+      _isTyping = false;
+      _replyingTo = null;
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
   }
 
   void _scrollToBottom() {
     if (_scrollController.hasClients) {
       _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
+        0.0,
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOut,
       );
+    }
+  }
+
+  void _scrollToMessage(String messageId, List<dynamic> items) {
+    if (!_scrollController.hasClients) return;
+    final index = items.indexWhere((item) => item is MessageModel && item.id == messageId);
+    if (index != -1) {
+      // Very rough estimation since we can't easily scroll to index with standard ScrollController
+      final estimatedOffset = index * 80.0;
+      _scrollController.animateTo(
+        estimatedOffset,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOut,
+      );
+    }
+  }
+
+  void _blockUser() async {
+    if (_sellerId != null) {
+      await context.read<ChatProvider>().blockUser(_sellerId!);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User blocked')));
+        Navigator.pop(context);
+      }
     }
   }
 
@@ -110,10 +128,11 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   Widget build(BuildContext context) {
     final provider = context.watch<ChatProvider>();
     final currentUserId = provider.currentUserId;
-    final messages = provider.activeMessages;
 
-    // Auto-scroll on new messages
-    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+    ChatModel? currentChat;
+    try {
+      currentChat = provider.userChats.firstWhere((c) => c.id == _chatId);
+    } catch (_) {}
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -121,31 +140,140 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Product preview card (if a product is attached)
             if (_productContext != null) _buildProductPreview(),
-            // Messages area
             Expanded(
-              child: _chatId == null || provider.isLoadingMessages
+              child: _chatId == null
                   ? const Center(child: CircularProgressIndicator(color: Color(0xFF808080)))
-                  : messages.isEmpty
-                      ? _buildEmptyState()
-                      : ListView.builder(
-                          controller: _scrollController,
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                          itemCount: messages.length,
-                          itemBuilder: (context, index) {
-                            final msg = messages[index];
-                            final isMe = msg.senderId == currentUserId;
-                            return _FadeInMessage(
-                              key: ValueKey(msg.id),
-                              child: _buildMessageRow(msg, isMe),
-                            );
-                          },
-                        ),
+                  : StreamBuilder<QuerySnapshot>(
+                      stream: FirebaseFirestore.instance
+                          .collection('chats')
+                          .doc(_chatId)
+                          .collection('messages')
+                          .orderBy('createdAt', descending: true)
+                          .snapshots(),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+                          return const Center(child: CircularProgressIndicator(color: Color(0xFF808080)));
+                        }
+                        
+                        final docs = snapshot.data?.docs ?? [];
+                        final messages = docs.map((d) => MessageModel.fromDoc(d)).toList();
+                        
+                        final List<dynamic> items = [];
+                        for (int i = 0; i < messages.length; i++) {
+                          final msg = messages[i];
+                          items.add(msg);
+                          
+                          bool addDate = false;
+                          if (i == messages.length - 1) {
+                            addDate = true;
+                          } else {
+                            final nextMsg = messages[i + 1];
+                            final msgDate = DateTime(msg.createdAt.year, msg.createdAt.month, msg.createdAt.day);
+                            final nextMsgDate = DateTime(nextMsg.createdAt.year, nextMsg.createdAt.month, nextMsg.createdAt.day);
+                            if (msgDate != nextMsgDate) {
+                              addDate = true;
+                            }
+                          }
+                          
+                          if (addDate) {
+                            items.add(DateTime(msg.createdAt.year, msg.createdAt.month, msg.createdAt.day));
+                          }
+                        }
+
+                        if (items.isEmpty) return _buildEmptyState();
+
+                        return Column(
+                          children: [
+                            if (currentChat?.pinnedMessageId != null)
+                              _buildPinnedMessageView(currentChat!, messages, items),
+                            Expanded(
+                              child: ListView.builder(
+                                controller: _scrollController,
+                                reverse: true,
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                                itemCount: items.length,
+                                itemBuilder: (context, index) {
+                                  final item = items[index];
+                                  if (item is DateTime) return _DateHeader(date: item);
+                                  final msg = item as MessageModel;
+                                  final isMe = msg.senderId == currentUserId;
+                                  return _FadeInMessage(
+                                    key: ValueKey(msg.id),
+                                    child: _buildMessageRow(msg, isMe, provider, messages),
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
             ),
+            if (_replyingTo != null) _buildReplyPreview(),
             _buildInputBar(),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildPinnedMessageView(ChatModel chat, List<MessageModel> messages, List<dynamic> items) {
+    final pinnedMsg = messages.cast<MessageModel?>().firstWhere((m) => m?.id == chat.pinnedMessageId, orElse: () => null);
+    if (pinnedMsg == null) return const SizedBox.shrink();
+
+    return GestureDetector(
+      onTap: () => _scrollToMessage(chat.pinnedMessageId!, items),
+      child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF9F9F9),
+        border: Border(bottom: BorderSide(color: Color(0xFFEEEEEE))),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.push_pin, color: Color(0xFFD4AF37), size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Pinned Message', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFD4AF37))),
+                Text(pinnedMsg.text, style: const TextStyle(fontSize: 13, color: Color(0xFF333333)), maxLines: 1, overflow: TextOverflow.ellipsis),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, size: 20, color: Color(0xFF999999)),
+            onPressed: () => context.read<ChatProvider>().pinMessage(null),
+          ),
+        ],
+      ),
+    ));
+  }
+
+  Widget _buildReplyPreview() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      color: const Color(0xFFF5F5F5),
+      child: Row(
+        children: [
+          const Icon(Icons.reply, color: Color(0xFF808080)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Replying to message', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF333333))),
+                Text(_replyingTo!.text, style: const TextStyle(fontSize: 13, color: Color(0xFF777777)), maxLines: 1, overflow: TextOverflow.ellipsis),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, size: 20, color: Color(0xFF999999)),
+            onPressed: () => setState(() => _replyingTo = null),
+          ),
+        ],
       ),
     );
   }
@@ -172,7 +300,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   Widget _buildProductPreview() {
     final p = _productContext!;
     return GestureDetector(
-      onTap: () => Navigator.pop(context), // Back to product
+      onTap: () => Navigator.pop(context),
       child: Container(
         margin: const EdgeInsets.fromLTRB(20, 12, 20, 0),
         padding: const EdgeInsets.all(12),
@@ -272,6 +400,18 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                   ],
                 ),
               ),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert, color: Colors.white),
+                onSelected: (value) {
+                  if (value == 'block') _blockUser();
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'block',
+                    child: Text('Block User', style: TextStyle(color: Colors.red)),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -279,29 +419,145 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     );
   }
 
-  Widget _buildMessageRow(MessageModel msg, bool isMe) {
-    final time = '${msg.createdAt.hour}:${msg.createdAt.minute.toString().padLeft(2, '0')}';
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
-      child: Row(
-        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          if (!isMe) _buildAvatar(isMe: false),
-          if (!isMe) const SizedBox(width: 8),
-          Flexible(
-            child: Column(
-              crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-              children: [
-                _buildBubble(msg.text, isMe),
-                const SizedBox(height: 4),
-                Text(time, style: const TextStyle(fontSize: 11, color: Color(0xFF999999))),
-              ],
-            ),
+  Widget _buildMessageRow(MessageModel msg, bool isMe, ChatProvider provider, List<MessageModel> messages) {
+    if (msg.isRecalled) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 20),
+        child: Align(
+          alignment: Alignment.center,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(color: const Color(0xFFF5F5F5), borderRadius: BorderRadius.circular(16)),
+            child: const Text('🚫 Message has been recalled', style: TextStyle(fontSize: 12, color: Color(0xFF999999))),
           ),
-          if (isMe) const SizedBox(width: 8),
-          if (isMe) _buildAvatar(isMe: true),
-        ],
+        ),
+      );
+    }
+
+    final time = '${msg.createdAt.hour}:${msg.createdAt.minute.toString().padLeft(2, '0')}';
+    
+    // Find replied message context
+    MessageModel? repliedMsg;
+    if (msg.replyToId != null) {
+      repliedMsg = messages.cast<MessageModel?>().firstWhere((m) => m?.id == msg.replyToId, orElse: () => null);
+    }
+
+    return GestureDetector(
+      onLongPress: () {
+        _showMessageOptions(msg, isMe, provider);
+      },
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 20),
+        child: Row(
+          mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            if (!isMe) _buildAvatar(isMe: false),
+            if (!isMe) const SizedBox(width: 8),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                children: [
+                  if (repliedMsg != null)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 4),
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0F0F0),
+                        borderRadius: BorderRadius.circular(8),
+                        border: const Border(left: BorderSide(color: Color(0xFFD4AF37), width: 3)),
+                      ),
+                      child: Text(repliedMsg.text, style: const TextStyle(fontSize: 12, color: Color(0xFF777777)), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ),
+                  if (msg.type == 'shared_product')
+                    _buildSharedProductCard(msg)
+                  else
+                    _buildBubble(msg.text, isMe),
+                  const SizedBox(height: 4),
+                  Text(time, style: const TextStyle(fontSize: 11, color: Color(0xFF999999))),
+                ],
+              ),
+            ),
+            if (isMe) const SizedBox(width: 8),
+            if (isMe) _buildAvatar(isMe: true),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showMessageOptions(MessageModel msg, bool isMe, ChatProvider provider) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.reply),
+              title: const Text('Reply'),
+              onTap: () {
+                Navigator.pop(context);
+                setState(() => _replyingTo = msg);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.push_pin),
+              title: const Text('Pin Message'),
+              onTap: () {
+                Navigator.pop(context);
+                provider.pinMessage(msg.id);
+              },
+            ),
+            if (isMe)
+              ListTile(
+                leading: const Icon(Icons.undo, color: Colors.red),
+                title: const Text('Recall', style: TextStyle(color: Colors.red)),
+                onTap: () {
+                  Navigator.pop(context);
+                  provider.recallMessage(msg.id);
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSharedProductCard(MessageModel msg) {
+    final meta = msg.metadata ?? {};
+    return GestureDetector(
+      onTap: () {
+        if (meta['id'] != null) {
+          Navigator.pushNamed(context, AppRouter.product, arguments: meta['id']);
+        }
+      },
+      child: Container(
+        width: 220,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: const Color(0xFFEEEEEE)),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: const [BoxShadow(color: Color(0x0A000000), offset: Offset(0, 4), blurRadius: 10)],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.network(
+                meta['image'] ?? '',
+                height: 120, width: double.infinity, fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(height: 120, color: const Color(0xFFEEEEEE), child: const Icon(Icons.image, color: Colors.grey)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(meta['name'] ?? 'Product', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold), maxLines: 2, overflow: TextOverflow.ellipsis),
+            const SizedBox(height: 4),
+            Text(meta['price'] != null ? '\$${meta['price']}' : '', style: const TextStyle(fontSize: 14, color: Color(0xFFD4AF37), fontWeight: FontWeight.w600)),
+          ],
+        ),
       ),
     );
   }
@@ -390,7 +646,37 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
   }
 }
 
-// ─── Slide-up fade animation for new messages ───────────────────────────────
+class _DateHeader extends StatelessWidget {
+  final DateTime date;
+  const _DateHeader({required this.date});
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final isToday = date.year == now.year && date.month == now.month && date.day == now.day;
+    final isYesterday = date.year == now.year && date.month == now.month && date.day == now.day - 1;
+    
+    String label;
+    if (isToday) {
+      label = 'Today';
+    } else if (isYesterday) {
+      label = 'Yesterday';
+    } else {
+      label = DateFormat('dd/MM/yyyy').format(date);
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 16),
+      alignment: Alignment.center,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        decoration: BoxDecoration(color: const Color(0xFFF0F0F0), borderRadius: BorderRadius.circular(12)),
+        child: Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFF999999), fontWeight: FontWeight.w600)),
+      ),
+    );
+  }
+}
+
 class _FadeInMessage extends StatefulWidget {
   final Widget child;
   const _FadeInMessage({super.key, required this.child});

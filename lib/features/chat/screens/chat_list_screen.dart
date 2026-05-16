@@ -15,6 +15,16 @@ class ChatListScreen extends StatefulWidget {
 class _ChatListScreenState extends State<ChatListScreen> {
   final TextEditingController _searchController = TextEditingController();
 
+  String _removeDiacritics(String str) {
+    const withDia = 'àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ';
+    const noDia = 'aaaaaaaaaaaaaaaaaeeeeeeeeeeeiiiiiooooooooooooooooouuuuuuuuuuuyyyyyd';
+    String result = str.toLowerCase();
+    for (int i = 0; i < withDia.length; i++) {
+      result = result.replaceAll(withDia[i], noDia[i]);
+    }
+    return result;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -34,15 +44,17 @@ class _ChatListScreenState extends State<ChatListScreen> {
   Widget build(BuildContext context) {
     final bool isKeyboardVisible = MediaQuery.of(context).viewInsets.bottom > 0;
     final provider = context.watch<ChatProvider>();
-    final query = _searchController.text.toLowerCase();
+    final query = _removeDiacritics(_searchController.text);
+    final uid = provider.currentUserId;
     
-    // Filter by seller name from cached profiles
+    // Filter by counterpart name from cached profiles
     final allChats = provider.userChats;
     final filteredChats = query.isEmpty
         ? allChats
         : allChats.where((c) {
-            final profile = provider.getSellerProfile(c.sellerId);
-            final name = (profile?['name'] ?? '').toString().toLowerCase();
+            final otherId = c.userId == uid ? c.sellerId : c.userId;
+            final profile = provider.getParticipantProfile(otherId);
+            final name = _removeDiacritics(profile?['name'] ?? '');
             return name.contains(query);
           }).toList();
 
@@ -147,8 +159,10 @@ class _ChatListScreenState extends State<ChatListScreen> {
   }
 
   Widget _buildChatRow(ChatModel chat, ChatProvider provider) {
-    final profile = provider.getSellerProfile(chat.sellerId);
-    final sellerName = profile?['name'] ?? 'Seller';
+    final uid = provider.currentUserId;
+    final otherId = chat.userId == uid ? chat.sellerId : chat.userId;
+    final profile = provider.getParticipantProfile(otherId);
+    final otherName = profile?['name'] ?? 'User';
     final avatarUrl = profile?['avatar'] ?? '';
 
     final now = DateTime.now();
@@ -159,72 +173,124 @@ class _ChatListScreenState extends State<ChatListScreen> {
         ? '${chat.lastMessageTime.hour}:${chat.lastMessageTime.minute.toString().padLeft(2, '0')}'
         : '${chat.lastMessageTime.day}/${chat.lastMessageTime.month}';
 
-    return InkWell(
-      onTap: () {
-        Navigator.pushNamed(
-          context,
-          AppRouter.chatDetail,
-          arguments: {
-            'chatId': chat.id,
-            'sellerId': chat.sellerId,
-            'sellerName': sellerName,
-            'sellerAvatar': avatarUrl,
-          },
-        );
+    final isUnread = chat.lastMessageIsRead == false && chat.lastMessageSenderId != provider.currentUserId;
+
+    return Dismissible(
+      key: Key(chat.id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        color: Colors.red,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
+      onDismissed: (_) {
+        provider.deleteChat(chat.id);
       },
-      highlightColor: Colors.black.withAlpha(8),
-      splashColor: Colors.transparent,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        child: Row(
-          children: [
-            // Avatar with online dot
-            SizedBox(
-              width: 52, height: 52,
-              child: Stack(
-                children: [
-                  Container(
-                    width: 52, height: 52,
-                    decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFFF5F5F5)),
-                    clipBehavior: Clip.hardEdge,
-                    child: avatarUrl.isEmpty
-                        ? const Icon(Icons.storefront_outlined, color: Color(0xFFCCCCCC), size: 24)
-                        : Image.network(avatarUrl, fit: BoxFit.cover),
-                  ),
-                  Positioned(
-                    bottom: 1, right: 1,
-                    child: Container(
-                      width: 12, height: 12,
-                      decoration: BoxDecoration(color: const Color(0xFF4CAF50), shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
+      child: InkWell(
+        onTap: () {
+          Navigator.pushNamed(
+            context,
+            AppRouter.chatDetail,
+            arguments: {
+              'chatId': chat.id,
+              'sellerId': otherId,
+              'sellerName': otherName,
+              'sellerAvatar': avatarUrl,
+            },
+          );
+        },
+        highlightColor: Colors.black.withAlpha(8),
+        splashColor: Colors.transparent,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          child: Row(
+            children: [
+              // Avatar with online dot
+              SizedBox(
+                width: 52, height: 52,
+                child: Stack(
+                  children: [
+                    Container(
+                      width: 52, height: 52,
+                      decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFFF5F5F5)),
+                      clipBehavior: Clip.hardEdge,
+                      child: avatarUrl.isEmpty
+                          ? const Icon(Icons.storefront_outlined, color: Color(0xFFCCCCCC), size: 24)
+                          : Image.network(avatarUrl, fit: BoxFit.cover),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(sellerName, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF222222)), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    Positioned(
+                      bottom: 1, right: 1,
+                      child: Container(
+                        width: 12, height: 12,
+                        decoration: BoxDecoration(color: const Color(0xFF4CAF50), shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
                       ),
-                      Text(timestamp, style: const TextStyle(fontSize: 12, color: Color(0xFF999999))),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    chat.lastMessage.isEmpty ? 'Conversation started' : chat.lastMessage,
-                    style: const TextStyle(fontSize: 13, color: Color(0xFF777777)),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            otherName,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: isUnread ? FontWeight.bold : FontWeight.w600,
+                              color: const Color(0xFF333333),
+                            ),
+                            maxLines: 1, 
+                            overflow: TextOverflow.ellipsis
+                          ),
+                        ),
+                        Text(
+                          timestamp, 
+                          style: TextStyle(
+                            fontSize: 12, 
+                            color: isUnread ? Colors.red : const Color(0xFF999999),
+                            fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
+                          )
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            chat.lastMessage.isEmpty ? 'Conversation started' : chat.lastMessage,
+                            style: TextStyle(
+                              fontSize: 13, 
+                              color: isUnread ? const Color(0xFF222222) : const Color(0xFF777777),
+                              fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (isUnread) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            width: 10,
+                            height: 10,
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ]
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

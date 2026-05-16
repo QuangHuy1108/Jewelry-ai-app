@@ -19,8 +19,8 @@ class ChatProvider extends ChangeNotifier {
   bool _isLoadingMessages = false;
   String? _error;
 
-  // Cache of fetched seller profiles: sellerId → { name, avatar }
-  final Map<String, Map<String, dynamic>> _sellerCache = {};
+  // Cache of fetched profiles: UID → { name, avatar }
+  final Map<String, Map<String, dynamic>> _profileCache = {};
 
   // Subscriptions
   StreamSubscription<List<ChatModel>>? _chatListSub;
@@ -36,7 +36,7 @@ class ChatProvider extends ChangeNotifier {
   bool get isLoadingMessages => _isLoadingMessages;
   String? get error => _error;
 
-  Map<String, dynamic>? getSellerProfile(String sellerId) => _sellerCache[sellerId];
+  Map<String, dynamic>? getParticipantProfile(String uid) => _profileCache[uid];
 
   /// Checks if the user is currently actively chatting with a given target ID.
   bool isChatActiveWith(String targetId) {
@@ -62,12 +62,14 @@ class ChatProvider extends ChangeNotifier {
     _chatListSub?.cancel();
     _chatListSub = _service.getUserChats(uid).listen(
       (chats) async {
-        _userChats = chats;
+        // Filter out chats that the user has soft-deleted
+        _userChats = chats.where((c) => !c.deletedBy.contains(uid)).toList();
         _isLoadingChats = false;
-        // Pre-fetch unknown seller profiles
-        for (final chat in chats) {
-          if (!_sellerCache.containsKey(chat.sellerId)) {
-            _fetchSellerProfile(chat.sellerId);
+        // Pre-fetch unknown profiles for the other person in each chat
+        for (final chat in _userChats) {
+          final otherId = chat.userId == uid ? chat.sellerId : chat.userId;
+          if (!_profileCache.containsKey(otherId)) {
+            _fetchProfile(otherId);
           }
         }
         notifyListeners();
@@ -91,11 +93,25 @@ class ChatProvider extends ChangeNotifier {
   void openChatById(String chatId) {
     _activeChatId = chatId;
     _subscribeToMessages(chatId);
+    markAllAsSeen(chatId);
     notifyListeners();
   }
 
-  /// No-op shim kept for backward compatibility with legacy call-sites.
-  void markAllAsSeen() {}
+  /// Marks unread messages as read
+  Future<void> markAllAsSeen(String chatId) async {
+    final uid = currentUserId;
+    if (uid.isNotEmpty) {
+      await _service.markChatAsRead(chatId, uid);
+    }
+  }
+
+  /// Soft deletes a chat for the current user
+  Future<void> deleteChat(String chatId) async {
+    final uid = currentUserId;
+    if (uid.isNotEmpty) {
+      await _service.deleteChat(chatId, uid);
+    }
+  }
 
   // ─── Chat Session ───────────────────────────────────────────────────────────
 
@@ -118,9 +134,9 @@ class ChatProvider extends ChangeNotifier {
     _activeChatId = chatId;
     _subscribeToMessages(chatId);
 
-    // Pre-fetch seller profile if not cached
-    if (!_sellerCache.containsKey(sellerId)) {
-      _fetchSellerProfile(sellerId);
+    // Pre-fetch profile if not cached
+    if (!_profileCache.containsKey(sellerId)) {
+      _fetchProfile(sellerId);
     }
 
     notifyListeners();
@@ -136,6 +152,10 @@ class ChatProvider extends ChangeNotifier {
       (msgs) {
         _activeMessages = msgs;
         _isLoadingMessages = false;
+        
+        // Auto mark as read while the chat is actively open
+        markAllAsSeen(chatId);
+        
         notifyListeners();
       },
       onError: (e) {
@@ -148,16 +168,24 @@ class ChatProvider extends ChangeNotifier {
 
   // ─── Send Message ───────────────────────────────────────────────────────────
 
-  Future<void> sendMessage(String text) async {
+  Future<void> sendMessage(
+    String text, {
+    String type = 'text',
+    Map<String, dynamic>? metadata,
+    String? replyToId,
+  }) async {
     final chatId = _activeChatId;
     final uid = currentUserId;
-    if (chatId == null || uid.isEmpty || text.trim().isEmpty) return;
+    if (chatId == null || uid.isEmpty || (text.trim().isEmpty && type == 'text')) return;
 
     try {
       await _service.sendMessage(
         chatId: chatId,
         senderId: uid,
         text: text.trim(),
+        type: type,
+        metadata: metadata,
+        replyToId: replyToId,
       );
     } catch (e) {
       _error = e.toString();
@@ -165,12 +193,28 @@ class ChatProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> pinMessage(String? messageId) async {
+    if (_activeChatId == null) return;
+    await _service.pinMessage(_activeChatId!, messageId);
+  }
+
+  Future<void> recallMessage(String messageId) async {
+    if (_activeChatId == null) return;
+    await _service.recallMessage(_activeChatId!, messageId);
+  }
+
+  Future<void> blockUser(String targetUid) async {
+    final uid = currentUserId;
+    if (uid.isEmpty) return;
+    await _service.blockUser(uid, targetUid);
+  }
+
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
-  Future<void> _fetchSellerProfile(String sellerId) async {
-    final profile = await _service.getUserProfile(sellerId);
+  Future<void> _fetchProfile(String uid) async {
+    final profile = await _service.getUserProfile(uid);
     if (profile != null) {
-      _sellerCache[sellerId] = profile;
+      _profileCache[uid] = profile;
       notifyListeners();
     }
   }
