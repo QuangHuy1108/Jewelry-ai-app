@@ -121,7 +121,8 @@ class ChatProvider extends ChangeNotifier {
     _activeChatId = null;
     _messagesSub?.cancel();
     _activeMessages = [];
-    notifyListeners();
+    // Defer notification to avoid "setState() called during build/dispose" errors
+    Future.microtask(() => notifyListeners());
   }
 
   // ─── Chat Session ───────────────────────────────────────────────────────────
