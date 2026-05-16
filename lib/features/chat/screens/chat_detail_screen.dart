@@ -90,10 +90,12 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       });
     }
 
-    // Phase 2: Dynamic Name Resolution
+    // Phase 2: Dynamic Name Resolution Hardening
     if (_sellerName == null ||
         _sellerName == 'Seller' ||
-        _sellerName == 'Product Owner') {
+        _sellerName == 'Product Owner' ||
+        _sellerName!.contains('💎') ||
+        _sellerName!.contains('message')) {
       _resolveSenderName();
     }
   }

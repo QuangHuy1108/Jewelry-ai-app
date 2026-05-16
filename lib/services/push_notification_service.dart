@@ -405,7 +405,7 @@ class PushNotificationService {
             'chatId': chatId, // Pass chatId to force chat room to load directly by ID
             'seller': {
               'id': sellerId,
-              'name': message.notification?.title ?? 'Seller',
+              'name': payload['senderName'] ?? 'Seller', // Use clean senderName from payload
               'avatar': '',
             },
           },
