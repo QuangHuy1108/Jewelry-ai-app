@@ -14,7 +14,8 @@ class MyOrdersScreen extends StatefulWidget {
   State<MyOrdersScreen> createState() => _MyOrdersScreenState();
 }
 
-class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProviderStateMixin {
+class _MyOrdersScreenState extends State<MyOrdersScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   bool _isLoading = true;
 
@@ -51,13 +52,28 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
           .orderBy('createdAt', descending: true)
           .get();
 
-      final all = snapshot.docs.map((d) => d.data()).toList();
+      final all = snapshot.docs.map((d) {
+        final data = Map<String, dynamic>.from(
+          d.data() as Map<String, dynamic>,
+        );
+        data['orderId'] = d.id;
+        return data;
+      }).toList();
 
       if (mounted) {
         setState(() {
-          _activeOrders = all.where((o) => o['status'] == 'pending' || o['status'] == 'processing' || o['status'] == 'shipped').toList();
-          _completedOrders = all.where((o) => o['status'] == 'delivered' || o['status'] == 'completed').toList();
-          _cancelledOrders = all.where((o) => o['status'] == 'cancelled').toList();
+          _activeOrders = all.where((o) {
+            final s = (o['status'] ?? '').toString().toLowerCase();
+            return s == 'pending' || s == 'processing' || s == 'shipped';
+          }).toList();
+          _completedOrders = all.where((o) {
+            final s = (o['status'] ?? '').toString().toLowerCase();
+            return s.contains('deliver') || s.contains('complete');
+          }).toList();
+          _cancelledOrders = all.where((o) {
+            final s = (o['status'] ?? '').toString().toLowerCase();
+            return s == 'cancelled';
+          }).toList();
           _isLoading = false;
         });
       }
@@ -111,12 +127,23 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
                 shape: BoxShape.circle,
                 border: Border.all(color: const Color(0xFFEEEEEE)),
               ),
-              child: const Icon(Icons.arrow_back, color: Color(0xFF333333), size: 20),
+              child: const Icon(
+                Icons.arrow_back,
+                color: Color(0xFF333333),
+                size: 20,
+              ),
             ),
           ),
           const Expanded(
             child: Center(
-              child: Text('My Orders', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF333333))),
+              child: Text(
+                'My Orders',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF333333),
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 40),
@@ -137,7 +164,10 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
         labelColor: const Color(0xFF333333),
         unselectedLabelColor: const Color(0xFF808080),
         labelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-        unselectedLabelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.normal),
+        unselectedLabelStyle: const TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.normal,
+        ),
         indicatorColor: const Color(0xFF333333),
         indicatorWeight: 2.5,
         indicatorSize: TabBarIndicatorSize.label,
@@ -172,10 +202,14 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
   // ===== ORDER CARD =====
   Widget _buildOrderCard(Map<String, dynamic> order, String tab) {
     final items = order['items'] as List<dynamic>? ?? [];
-    final firstItem = items.isNotEmpty ? items[0] as Map<String, dynamic> : <String, dynamic>{};
+    final firstItem = items.isNotEmpty
+        ? items[0] as Map<String, dynamic>
+        : <String, dynamic>{};
     final name = firstItem['name'] ?? 'Unknown Item';
     final image = firstItem['image'] ?? '';
-    final price = (order['totalAmount'] ?? 0.0) is num ? (order['totalAmount'] as num).toDouble() : 0.0;
+    final price = (order['totalAmount'] ?? 0.0) is num
+        ? (order['totalAmount'] as num).toDouble()
+        : 0.0;
     final itemCount = items.length;
     final status = order['status'] ?? '';
 
@@ -189,7 +223,9 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
         child: Container(
           padding: const EdgeInsets.only(bottom: 20),
           decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: Color(0xFFF0F0F0), width: 1)),
+            border: Border(
+              bottom: BorderSide(color: Color(0xFFF0F0F0), width: 1),
+            ),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -201,9 +237,20 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
                 decoration: BoxDecoration(
                   color: const Color(0xFFF5F5F5),
                   borderRadius: BorderRadius.circular(12),
-                  image: image.isNotEmpty ? DecorationImage(image: NetworkImage(image), fit: BoxFit.cover) : null,
+                  image: image.isNotEmpty
+                      ? DecorationImage(
+                          image: NetworkImage(image),
+                          fit: BoxFit.cover,
+                        )
+                      : null,
                 ),
-                child: image.isEmpty ? const Icon(Icons.diamond_outlined, color: Color(0xFFCCCCCC), size: 26) : null,
+                child: image.isEmpty
+                    ? const Icon(
+                        Icons.diamond_outlined,
+                        color: Color(0xFFCCCCCC),
+                        size: 26,
+                      )
+                    : null,
               ),
               const SizedBox(width: 12),
               // Details
@@ -211,14 +258,35 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF333333)), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF333333),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     const SizedBox(height: 4),
                     Text(
-                      itemCount > 1 ? '$itemCount items · ${_statusLabel(status)}' : _statusLabel(status),
-                      style: const TextStyle(fontSize: 13, color: Color(0xFF999999)),
+                      itemCount > 1
+                          ? '$itemCount items · ${_statusLabel(status)}'
+                          : _statusLabel(status),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF999999),
+                      ),
                     ),
                     const SizedBox(height: 6),
-                    Text('\$${price.toStringAsFixed(2)}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF333333))),
+                    Text(
+                      '\$${price.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF333333),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -234,13 +302,20 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
 
   String _statusLabel(String status) {
     switch (status) {
-      case 'pending': return 'Pending';
-      case 'processing': return 'Processing';
-      case 'shipped': return 'Shipped';
-      case 'delivered': return 'Delivered';
-      case 'completed': return 'Completed';
-      case 'cancelled': return 'Cancelled';
-      default: return status;
+      case 'pending':
+        return 'Pending';
+      case 'processing':
+        return 'Processing';
+      case 'shipped':
+        return 'Shipped';
+      case 'delivered':
+        return 'Delivered';
+      case 'completed':
+        return 'Completed';
+      case 'cancelled':
+        return 'Cancelled';
+      default:
+        return status;
     }
   }
 
@@ -256,10 +331,19 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
         };
         break;
       case 'completed':
-        label = 'Leave Review';
-        onPressed = () {
-          Navigator.pushNamed(context, AppRouter.leaveReview);
-        };
+        final isProductReviewed = order['isProductReviewed'] == true;
+        final isSellerReviewed = order['isSellerReviewed'] == true;
+        final isFullyReviewed = isProductReviewed && isSellerReviewed;
+        label = isFullyReviewed ? 'Reviewed' : 'Leave Review';
+        onPressed = isFullyReviewed
+            ? () {}
+            : () {
+                Navigator.pushNamed(
+                  context,
+                  AppRouter.leaveReview,
+                  arguments: order,
+                );
+              };
         break;
       case 'cancelled':
         label = 'Re-Order';
@@ -276,12 +360,26 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
       child: ElevatedButton(
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF808080),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          backgroundColor:
+              tab == 'completed' && order['isSellerReviewed'] == true
+              ? Colors.grey.shade300
+              : const Color(0xFF808080),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
           elevation: 0,
           padding: EdgeInsets.zero,
         ),
-        child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: tab == 'completed' && order['isSellerReviewed'] == true
+                ? Colors.grey.shade600
+                : Colors.white,
+          ),
+        ),
       ),
     );
   }
@@ -292,13 +390,17 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
 
     for (final item in items) {
       final product = item as Map<String, dynamic>;
-      cart.addToCart({
-        'id': product['productId'] ?? product['id'],
-        'name': product['name'] ?? '',
-        'price': product['price'] ?? 0,
-        'image': product['image'] ?? '',
-        'category': product['category'] ?? '',
-      }, qty: product['quantity'] ?? 1, selectedOptions: product['selectedOptions']);
+      cart.addToCart(
+        {
+          'id': product['productId'] ?? product['id'],
+          'name': product['name'] ?? '',
+          'price': product['price'] ?? 0,
+          'image': product['image'] ?? '',
+          'category': product['category'] ?? '',
+        },
+        qty: product['quantity'] ?? 1,
+        selectedOptions: product['selectedOptions'],
+      );
     }
 
     LuxuryToast.show(context, message: 'Items added to cart');
@@ -339,7 +441,10 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
     return Container(
       width: width,
       height: height,
-      decoration: BoxDecoration(color: const Color(0xFFF0F0F0), borderRadius: BorderRadius.circular(radius)),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F0F0),
+        borderRadius: BorderRadius.circular(radius),
+      ),
     );
   }
 
@@ -371,9 +476,19 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> with SingleTickerProvid
         children: [
           Icon(icon, size: 72, color: const Color(0xFFDDDDDD)),
           const SizedBox(height: 16),
-          Text(message, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF333333))),
+          Text(
+            message,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF333333),
+            ),
+          ),
           const SizedBox(height: 8),
-          const Text('Your orders will appear here', style: TextStyle(fontSize: 13, color: Color(0xFF999999))),
+          const Text(
+            'Your orders will appear here',
+            style: TextStyle(fontSize: 13, color: Color(0xFF999999)),
+          ),
         ],
       ),
     );

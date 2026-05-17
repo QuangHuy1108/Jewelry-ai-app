@@ -111,6 +111,15 @@ exports.onOrderUpdated = functions.firestore
 
     const userId = after.userId;
     const newStatus = after.status;
+    // Sync the status to the user's order subcollection
+    try {
+      await db.collection('users').doc(userId).collection('orders').doc(orderId).update({
+        status: newStatus
+      });
+    } catch (err) {
+      console.error('Failed to sync order status to user order collection:', err);
+    }
+
     const shortId = orderId.substring(0, 8).toUpperCase();
 
     const statusMessages = {

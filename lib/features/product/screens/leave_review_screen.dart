@@ -1,4 +1,6 @@
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:jewelry_app/core/utils/luxury_toast.dart';
 import 'dart:io';
 import 'dart:ui';
@@ -6,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../cart/providers/cart_provider.dart';
-
 
 class LeaveReviewScreen extends StatefulWidget {
   const LeaveReviewScreen({super.key});
@@ -17,15 +18,17 @@ class LeaveReviewScreen extends StatefulWidget {
 
 class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
   int _selectedTabIndex = 0;
-  
+  bool _isProductReviewed = false;
+  bool _isSellerReviewed = false;
+
   int _rating = 0;
-  
+
   int _honesty = 0;
   int _attitude = 0;
   int _consultingSkill = 0;
   int _afterSalesService = 0;
   int _productKnowledge = 0;
-  
+
   final TextEditingController _reviewController = TextEditingController();
   final TextEditingController _sellerReviewController = TextEditingController();
   bool _isSubmitting = false;
@@ -61,25 +64,160 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (_product.isEmpty) {
-      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-      if (args != null) {
+      final args =
+          ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      if (args != null &&
+          args['orderId'] != null &&
+          args['orderId'].toString().isNotEmpty) {
         setState(() {
-          _selectedTabIndex = (args['isSellerReview'] == true) ? 1 : 0;
+          _isProductReviewed = args['isProductReviewed'] == true;
+          _isSellerReviewed = args['isSellerReviewed'] == true;
+
+          if (_isProductReviewed && !_isSellerReviewed) {
+            _selectedTabIndex = 1;
+          } else if (!_isProductReviewed && _isSellerReviewed) {
+            _selectedTabIndex = 0;
+          } else {
+            _selectedTabIndex = (args['isSellerReview'] == true) ? 1 : 0;
+          }
+
+          final items = args['items'] as List<dynamic>? ?? [];
+          final firstItem = items.isNotEmpty
+              ? items[0] as Map<String, dynamic>
+              : <String, dynamic>{};
+
           _product = {
-            "id": args['id'] ?? '',
-            "sellerId": args['sellerId'] ?? '',
-            "name": args['name'] ?? 'Product',
-            "category": args['category'] ?? '',
-            "price": (args['price'] is num) ? args['price'] : (double.tryParse(args['price']?.toString().replaceAll('\$', '') ?? '0') ?? 0),
-            "originalPrice": args['originalPrice'] ?? args['price'] ?? 0,
-            "quantity": args['quantity'] ?? 1,
-            "image": args['image'] ?? '',
+            "orderId": args['orderId'] ?? '',
+            "id": firstItem['productId'] ?? firstItem['id'] ?? '',
+            "sellerId":
+                args['affiliateId'] ??
+                args['sellerId'] ??
+                firstItem['sellerId'] ??
+                '',
+            "sellerName": args['sellerName'] ?? 'your consultant',
+            "name": firstItem['name'] ?? 'Product Name',
+            "category": firstItem['category'] ?? '',
+            "price": (args['totalAmount'] is num)
+                ? (args['totalAmount'] as num).toDouble()
+                : (double.tryParse(
+                        args['totalAmount']?.toString().replaceAll('\$', '') ??
+                            '',
+                      ) ??
+                      (firstItem['price'] is num
+                          ? (firstItem['price'] as num).toDouble()
+                          : (double.tryParse(
+                                  firstItem['price']?.toString().replaceAll('\$', '') ??
+                                      '0',
+                                ) ??
+                                0))),
+            "image": firstItem['image'] ?? '',
+            "quantity": firstItem['quantity'] ?? firstItem['qty'] ?? 1,
           };
         });
+
+        final sellerId = _product['sellerId'] ?? '';
+        if (sellerId.isNotEmpty) {
+          FirebaseFirestore.instance
+              .collection('sellers')
+              .doc(sellerId)
+              .get()
+              .then((doc) {
+                if (doc.exists && mounted) {
+                  setState(() {
+                    _product['sellerName'] =
+                        doc.data()?['name'] ?? 'your consultant';
+                  });
+                }
+              })
+              .catchError((_) {});
+        }
+      } else {
+        // Fallback: Query the user's latest order directly from Firestore to ensure no grey card/crashes!
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .collection('orders')
+              .orderBy('createdAt', descending: true)
+              .limit(1)
+              .get()
+              .then((snapshot) {
+                if (snapshot.docs.isNotEmpty && mounted) {
+                  final orderDoc = snapshot.docs.first;
+                  final orderData = orderDoc.data();
+                  final orderId = orderDoc.id;
+                  final items = orderData['items'] as List<dynamic>? ?? [];
+                  final firstItem = items.isNotEmpty
+                      ? items[0] as Map<String, dynamic>
+                      : <String, dynamic>{};
+
+                  setState(() {
+                    _isProductReviewed = orderData['isProductReviewed'] == true;
+                    _isSellerReviewed = orderData['isSellerReviewed'] == true;
+
+                    if (_isProductReviewed && !_isSellerReviewed) {
+                      _selectedTabIndex = 1;
+                    } else if (!_isProductReviewed && _isSellerReviewed) {
+                      _selectedTabIndex = 0;
+                    } else {
+                      _selectedTabIndex = 0;
+                    }
+
+                    _product = {
+                      "orderId": orderId,
+                      "id": firstItem['productId'] ?? firstItem['id'] ?? '',
+                      "sellerId":
+                          orderData['affiliateId'] ??
+                          orderData['sellerId'] ??
+                          firstItem['sellerId'] ??
+                          '',
+                      "sellerName":
+                          orderData['sellerName'] ?? 'your consultant',
+                      "name": firstItem['name'] ?? 'Product Name',
+                      "category": firstItem['category'] ?? '',
+                      "price": (orderData['totalAmount'] is num)
+                          ? (orderData['totalAmount'] as num).toDouble()
+                          : (double.tryParse(
+                                  orderData['totalAmount']?.toString().replaceAll('\$', '') ??
+                                      '',
+                                ) ??
+                                (firstItem['price'] is num
+                                    ? (firstItem['price'] as num).toDouble()
+                                    : (double.tryParse(
+                                            firstItem['price']?.toString().replaceAll('\$', '') ??
+                                                '0',
+                                          ) ??
+                                          0))),
+                      "image": firstItem['image'] ?? '',
+                      "quantity":
+                          firstItem['quantity'] ?? firstItem['qty'] ?? 1,
+                    };
+                  });
+
+                  final sellerId = _product['sellerId'] ?? '';
+                  if (sellerId.isNotEmpty) {
+                    FirebaseFirestore.instance
+                        .collection('sellers')
+                        .doc(sellerId)
+                        .get()
+                        .then((doc) {
+                          if (doc.exists && mounted) {
+                            setState(() {
+                              _product['sellerName'] =
+                                  doc.data()?['name'] ?? 'your consultant';
+                            });
+                          }
+                        })
+                        .catchError((_) {});
+                  }
+                }
+              })
+              .catchError((_) {});
+        }
       }
     }
   }
-
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
@@ -93,21 +231,30 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
     final isSeller = _selectedTabIndex == 1;
 
     if (isSeller) {
-      if (_honesty == 0 || _attitude == 0 || _consultingSkill == 0 || _afterSalesService == 0 || _productKnowledge == 0 || _sellerReviewController.text.trim().isEmpty) return;
+      if (_honesty == 0 ||
+          _attitude == 0 ||
+          _consultingSkill == 0 ||
+          _afterSalesService == 0 ||
+          _productKnowledge == 0 ||
+          _sellerReviewController.text.trim().isEmpty)
+        return;
     } else {
       if (_rating == 0 || _reviewController.text.trim().isEmpty) return;
     }
 
     setState(() => _isSubmitting = true);
-    
+
     try {
       final callable = FirebaseFunctions.instance.httpsCallable('submitReview');
       await callable.call({
+        'orderId': _product['orderId'],
         'productId': _product['id'],
         'sellerId': isSeller ? _product['sellerId'] : null,
         'isSellerReview': isSeller,
         'rating': _rating,
-        'comment': isSeller ? _sellerReviewController.text.trim() : _reviewController.text.trim(),
+        'comment': isSeller
+            ? _sellerReviewController.text.trim()
+            : _reviewController.text.trim(),
         'hasMedia': _selectedImage != null,
         if (isSeller) 'honesty': _honesty,
         if (isSeller) 'attitude': _attitude,
@@ -115,11 +262,12 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
         if (isSeller) 'afterSalesService': _afterSalesService,
         if (isSeller) 'productKnowledge': _productKnowledge,
       });
-      
+
       if (mounted) {
         setState(() {
           _isSubmitting = false;
           if (isSeller) {
+            _isSellerReviewed = true;
             _sellerReviewController.clear();
             _honesty = 0;
             _attitude = 0;
@@ -127,12 +275,31 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
             _afterSalesService = 0;
             _productKnowledge = 0;
           } else {
+            _isProductReviewed = true;
             _reviewController.clear();
             _rating = 0;
           }
           _selectedImage = null;
         });
-        LuxuryToast.show(context, message: isSeller ? 'Seller Review submitted!' : 'Product Review submitted!');
+
+        LuxuryToast.show(
+          context,
+          message: isSeller
+              ? 'Seller Review submitted!'
+              : 'Product Review submitted!',
+        );
+
+        if (_isProductReviewed && _isSellerReviewed) {
+          Future.delayed(const Duration(milliseconds: 800), () {
+            if (mounted) {
+              Navigator.pop(context);
+            }
+          });
+        } else {
+          setState(() {
+            _selectedTabIndex = isSeller ? 0 : 1;
+          });
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -157,6 +324,36 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
         child: Column(
           children: [
             const SizedBox(height: 20),
+            if (_selectedTabIndex == 1)
+              Container(
+                margin: const EdgeInsets.only(bottom: 20),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE3F2FD),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFBBDEFB)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.info_outline,
+                      color: Colors.blue,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'You are reviewing the service quality of consultant: ${_product['sellerName']}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.blue,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             _buildProductSummaryCard(),
             const SizedBox(height: 32),
             const Text(
@@ -266,7 +463,7 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
                 Row(
                   children: [
                     Text(
-                      '\$${(_product['price'] ?? 0).toStringAsFixed(0)}',
+                      '\$${(_product['price'] ?? 0).toStringAsFixed(2)}',
                       style: const TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
@@ -274,7 +471,10 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
                     ),
                     const SizedBox(width: 10),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFEEEEEE),
                         borderRadius: BorderRadius.circular(6),
@@ -337,10 +537,7 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
             offset: const Offset(0, 4),
           ),
         ],
-        border: Border.all(
-          color: Colors.white.withOpacity(0.6),
-          width: 1.5,
-        ),
+        border: Border.all(color: Colors.white.withOpacity(0.6), width: 1.5),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(30),
@@ -358,19 +555,42 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
                       curve: Curves.easeInOutCubic,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       decoration: BoxDecoration(
-                        color: _selectedTabIndex == 0 ? Colors.white.withOpacity(0.9) : Colors.transparent,
+                        color: _selectedTabIndex == 0
+                            ? Colors.white.withOpacity(0.9)
+                            : Colors.transparent,
                         borderRadius: BorderRadius.circular(26),
-                        boxShadow: _selectedTabIndex == 0 ? [
-                          BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 2))
-                        ] : [],
+                        boxShadow: _selectedTabIndex == 0
+                            ? [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.08),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ]
+                            : [],
                       ),
                       child: Center(
-                        child: Text(
-                          'Product Review', 
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600, 
-                            color: _selectedTabIndex == 0 ? const Color(0xFF333333) : const Color(0xFF888888)
-                          ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Product Review',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: _selectedTabIndex == 0
+                                    ? const Color(0xFF333333)
+                                    : const Color(0xFF888888),
+                              ),
+                            ),
+                            if (_isProductReviewed) ...[
+                              const SizedBox(width: 6),
+                              const Icon(
+                                Icons.check_circle,
+                                size: 14,
+                                color: Colors.green,
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     ),
@@ -384,19 +604,42 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
                       curve: Curves.easeInOutCubic,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       decoration: BoxDecoration(
-                        color: _selectedTabIndex == 1 ? Colors.white.withOpacity(0.9) : Colors.transparent,
+                        color: _selectedTabIndex == 1
+                            ? Colors.white.withOpacity(0.9)
+                            : Colors.transparent,
                         borderRadius: BorderRadius.circular(26),
-                        boxShadow: _selectedTabIndex == 1 ? [
-                          BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, 2))
-                        ] : [],
+                        boxShadow: _selectedTabIndex == 1
+                            ? [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.08),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ]
+                            : [],
                       ),
                       child: Center(
-                        child: Text(
-                          'Seller Review', 
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600, 
-                            color: _selectedTabIndex == 1 ? const Color(0xFF333333) : const Color(0xFF888888)
-                          ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Seller Review',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: _selectedTabIndex == 1
+                                    ? const Color(0xFF333333)
+                                    : const Color(0xFF888888),
+                              ),
+                            ),
+                            if (_isSellerReviewed) ...[
+                              const SizedBox(width: 6),
+                              const Icon(
+                                Icons.check_circle,
+                                size: 14,
+                                color: Colors.green,
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     ),
@@ -415,15 +658,35 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
     if (isSeller) {
       return Column(
         children: [
-          _buildCriteriaRow('Honesty', _honesty, (v) => setState(() => _honesty = v)),
+          _buildCriteriaRow(
+            'Honesty',
+            _honesty,
+            (v) => setState(() => _honesty = v),
+          ),
           const SizedBox(height: 16),
-          _buildCriteriaRow('Attitude', _attitude, (v) => setState(() => _attitude = v)),
+          _buildCriteriaRow(
+            'Attitude',
+            _attitude,
+            (v) => setState(() => _attitude = v),
+          ),
           const SizedBox(height: 16),
-          _buildCriteriaRow('Consulting Skill', _consultingSkill, (v) => setState(() => _consultingSkill = v)),
+          _buildCriteriaRow(
+            'Consulting Skill',
+            _consultingSkill,
+            (v) => setState(() => _consultingSkill = v),
+          ),
           const SizedBox(height: 16),
-          _buildCriteriaRow('After-sales Service', _afterSalesService, (v) => setState(() => _afterSalesService = v)),
+          _buildCriteriaRow(
+            'After-sales Service',
+            _afterSalesService,
+            (v) => setState(() => _afterSalesService = v),
+          ),
           const SizedBox(height: 16),
-          _buildCriteriaRow('Product Knowledge', _productKnowledge, (v) => setState(() => _productKnowledge = v)),
+          _buildCriteriaRow(
+            'Product Knowledge',
+            _productKnowledge,
+            (v) => setState(() => _productKnowledge = v),
+          ),
         ],
       );
     }
@@ -463,11 +726,22 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
     );
   }
 
-  Widget _buildCriteriaRow(String title, int value, ValueChanged<int> onChanged) {
+  Widget _buildCriteriaRow(
+    String title,
+    int value,
+    ValueChanged<int> onChanged,
+  ) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF333333))),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF333333),
+          ),
+        ),
         Row(
           children: List.generate(5, (index) {
             final starIndex = index + 1;
@@ -479,7 +753,9 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
                 child: Icon(
                   Icons.star_rounded,
                   size: 32,
-                  color: isSelected ? const Color(0xFFFFD700) : const Color(0xFFE0E0E0),
+                  color: isSelected
+                      ? const Color(0xFFFFD700)
+                      : const Color(0xFFE0E0E0),
                 ),
               ),
             );
@@ -506,7 +782,9 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
           ),
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: TextField(
-            controller: _selectedTabIndex == 1 ? _sellerReviewController : _reviewController,
+            controller: _selectedTabIndex == 1
+                ? _sellerReviewController
+                : _reviewController,
             maxLines: 5,
             decoration: const InputDecoration(
               hintText: 'Enter here',
@@ -542,7 +820,11 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
                       color: Colors.white,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.cancel, color: Colors.red, size: 24),
+                    child: const Icon(
+                      Icons.cancel,
+                      color: Colors.red,
+                      size: 24,
+                    ),
                   ),
                 ),
               ),
@@ -598,7 +880,16 @@ class _LeaveReviewScreenState extends State<LeaveReviewScreen> {
         const SizedBox(width: 16),
         Expanded(
           child: ElevatedButton(
-            onPressed: ((_selectedTabIndex == 1 ? (_honesty > 0 && _attitude > 0 && _consultingSkill > 0 && _afterSalesService > 0 && _productKnowledge > 0 && _sellerReviewController.text.trim().isNotEmpty) : (_rating > 0 && _reviewController.text.trim().isNotEmpty)))
+            onPressed:
+                ((_selectedTabIndex == 1
+                    ? (_honesty > 0 &&
+                          _attitude > 0 &&
+                          _consultingSkill > 0 &&
+                          _afterSalesService > 0 &&
+                          _productKnowledge > 0 &&
+                          _sellerReviewController.text.trim().isNotEmpty)
+                    : (_rating > 0 &&
+                          _reviewController.text.trim().isNotEmpty)))
                 ? _submitReview
                 : null,
             style: ElevatedButton.styleFrom(

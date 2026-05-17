@@ -30,7 +30,7 @@ exports.onAffiliateOrderCreated = functions.firestore
   .onCreate(async (snap, context) => {
     const order = snap.data();
     const orderId = context.params.orderId;
-    const referralSellerId = order.referralSellerId;
+    const referralSellerId = order.referralSellerId || order.affiliateId || order.sellerId;
 
     // Only process orders that came through a referral
     if (!referralSellerId) return null;

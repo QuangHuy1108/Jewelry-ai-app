@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shimmer/shimmer.dart';
 import '../providers/product_provider.dart';
+import '../../cart/providers/cart_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import 'package:jewelry_app/services/product_service.dart';
 
@@ -45,7 +46,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   Future<void> _loadProduct() async {
-    final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     final provider = context.read<ProductProvider>();
 
     if (args != null && args.isNotEmpty) {
@@ -61,13 +63,25 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             if (doc.exists) {
               provider.initProduct({'id': doc.id, ...doc.data()!});
             } else {
-              provider.initProduct({...args, 'basePrice': _parsePrice(args['price']), 'images': [args['image'] ?? '']});
+              provider.initProduct({
+                ...args,
+                'basePrice': _parsePrice(args['price']),
+                'images': [args['image'] ?? ''],
+              });
             }
           } catch (_) {
-            provider.initProduct({...args, 'basePrice': _parsePrice(args['price']), 'images': [args['image'] ?? '']});
+            provider.initProduct({
+              ...args,
+              'basePrice': _parsePrice(args['price']),
+              'images': [args['image'] ?? ''],
+            });
           }
         } else {
-          provider.initProduct({...args, 'basePrice': _parsePrice(args['price']), 'images': [args['image'] ?? '']});
+          provider.initProduct({
+            ...args,
+            'basePrice': _parsePrice(args['price']),
+            'images': [args['image'] ?? ''],
+          });
         }
       }
     }
@@ -79,7 +93,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   double _parsePrice(dynamic price) {
     if (price is double) return price;
     if (price is int) return price.toDouble();
-    if (price is String) return double.tryParse(price.replaceAll('\$', '').replaceAll(',', '')) ?? 0.0;
+    if (price is String)
+      return double.tryParse(price.replaceAll('\$', '').replaceAll(',', '')) ??
+          0.0;
     return 0.0;
   }
 
@@ -93,7 +109,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     }
 
     final productData = context.watch<ProductProvider>().product;
-    if (productData.isEmpty) return const Scaffold(body: Center(child: Text('Product not found')));
+    if (productData.isEmpty)
+      return const Scaffold(body: Center(child: Text('Product not found')));
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F8F8),
@@ -125,7 +142,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(flex: 5, child: _buildMediaGallery(isTablet: true, screenWidth: screenWidth)),
+          Expanded(
+            flex: 5,
+            child: _buildMediaGallery(isTablet: true, screenWidth: screenWidth),
+          ),
           const SizedBox(width: 32),
           Expanded(flex: 4, child: _buildContentCard(isTablet: true)),
         ],
@@ -143,9 +163,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   }
 
   // Media Gallery
-  Widget _buildMediaGallery({required bool isTablet, required double screenWidth}) {
-    final images = context.read<ProductProvider>().product['images'] as List<dynamic>;
-    return isTablet ? _buildTabletGalleryView(images) : _buildMobileGalleryView(images, screenWidth);
+  Widget _buildMediaGallery({
+    required bool isTablet,
+    required double screenWidth,
+  }) {
+    final images =
+        context.read<ProductProvider>().product['images'] as List<dynamic>;
+    return isTablet
+        ? _buildTabletGalleryView(images)
+        : _buildMobileGalleryView(images, screenWidth);
   }
 
   Widget _buildTabletGalleryView(List<dynamic> images) {
@@ -170,7 +196,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               controller: _pageController,
               onPageChanged: (i) => setState(() => _selectedImageIndex = i),
               itemCount: images.length,
-              itemBuilder: (context, index) => _buildGalleryImage(images, images[index], index),
+              itemBuilder: (context, index) =>
+                  _buildGalleryImage(images, images[index], index),
             ),
           ),
         ],
@@ -191,7 +218,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 controller: _pageController,
                 onPageChanged: (i) => setState(() => _selectedImageIndex = i),
                 itemCount: images.length,
-                itemBuilder: (context, index) => _buildGalleryImage(images, images[index], index),
+                itemBuilder: (context, index) =>
+                    _buildGalleryImage(images, images[index], index),
               ),
             ),
           ),
@@ -216,41 +244,76 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   Widget _buildThumbnail(String url, int index) {
     return GestureDetector(
-      onTap: () => _pageController.animateToPage(index, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut),
+      onTap: () => _pageController.animateToPage(
+        index,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      ),
       child: Container(
-        width: 60, height: 60,
+        width: 60,
+        height: 60,
         decoration: BoxDecoration(
-          border: Border.all(color: _selectedImageIndex == index ? const Color(0xFF333333) : Colors.transparent, width: 2),
+          border: Border.all(
+            color: _selectedImageIndex == index
+                ? const Color(0xFF333333)
+                : Colors.transparent,
+            width: 2,
+          ),
           borderRadius: BorderRadius.circular(8),
-          image: url.endsWith('.mp4') || url.isEmpty ? null : DecorationImage(image: NetworkImage(url), fit: BoxFit.cover),
+          image: url.endsWith('.mp4') || url.isEmpty
+              ? null
+              : DecorationImage(image: NetworkImage(url), fit: BoxFit.cover),
           color: url.endsWith('.mp4') || url.isEmpty ? Colors.black12 : null,
         ),
-        child: url.endsWith('.mp4') ? const Icon(Icons.play_circle_outline, color: Colors.white) : null,
+        child: url.endsWith('.mp4')
+            ? const Icon(Icons.play_circle_outline, color: Colors.white)
+            : null,
       ),
     );
   }
 
-  Widget _buildGalleryImage(List<dynamic> rawImages, String imageUrl, int index) {
-    if (imageUrl.endsWith('.mp4')) return ProductVideoPlayer(videoUrl: imageUrl);
+  Widget _buildGalleryImage(
+    List<dynamic> rawImages,
+    String imageUrl,
+    int index,
+  ) {
+    if (imageUrl.endsWith('.mp4'))
+      return ProductVideoPlayer(videoUrl: imageUrl);
 
     final List<String> images = rawImages.cast<String>();
-    final filteredImages = images.where((url) => !url.endsWith('.mp4')).toList();
+    final filteredImages = images
+        .where((url) => !url.endsWith('.mp4'))
+        .toList();
     final initialIndex = filteredImages.indexOf(imageUrl);
 
     return GestureDetector(
       onTap: () {
-        Navigator.push(context, MaterialPageRoute(
-          builder: (context) => FullScreenImageGallery(
-            images: filteredImages,
-            initialIndex: initialIndex != -1 ? initialIndex : 0,
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => FullScreenImageGallery(
+              images: filteredImages,
+              initialIndex: initialIndex != -1 ? initialIndex : 0,
+            ),
           ),
-        ));
+        );
       },
       child: Hero(
         tag: 'product_image_$index',
-        child: imageUrl.isEmpty 
-            ? const Center(child: Icon(Icons.image_not_supported, size: 50, color: Colors.grey))
-            : Image.network(imageUrl, fit: BoxFit.contain, width: double.infinity, height: double.infinity),
+        child: imageUrl.isEmpty
+            ? const Center(
+                child: Icon(
+                  Icons.image_not_supported,
+                  size: 50,
+                  color: Colors.grey,
+                ),
+              )
+            : Image.network(
+                imageUrl,
+                fit: BoxFit.contain,
+                width: double.infinity,
+                height: double.infinity,
+              ),
       ),
     );
   }
@@ -262,14 +325,22 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       duration: const Duration(milliseconds: 600),
       curve: Curves.easeOutCubic,
       builder: (context, value, child) {
-        return Transform.translate(offset: Offset(0, isTablet ? 0 : 100 * value), child: child);
+        return Transform.translate(
+          offset: Offset(0, isTablet ? 0 : 100 * value),
+          child: child,
+        );
       },
       child: Container(
         width: double.infinity,
         decoration: BoxDecoration(
           color: AppColors.canvas, // signature absolute canvas token
-          borderRadius: isTablet ? BorderRadius.circular(24) : const BorderRadius.vertical(top: Radius.circular(32)),
-          border: Border.all(color: AppColors.hairline, width: 1), // flat hairline profile
+          borderRadius: isTablet
+              ? BorderRadius.circular(24)
+              : const BorderRadius.vertical(top: Radius.circular(32)),
+          border: Border.all(
+            color: AppColors.hairline,
+            width: 1,
+          ), // flat hairline profile
           // zero container shadow rule enforced
         ),
         padding: const EdgeInsets.all(24), // token spacing.lg alignment
@@ -284,23 +355,30 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             const SizedBox(height: 24),
             const CollapsibleSection(
               title: 'Product Details',
-              content: "This elegant gold earring is crafted with precision to bring out the natural glow of the wearer. Perfect for any occasion, from casual outings to formal events. Its timeless design ensures it remains a staple in your jewelry collection for years to come. Made with the highest quality gold, it's both durable and stunning.",
+              content:
+                  "This elegant gold earring is crafted with precision to bring out the natural glow of the wearer. Perfect for any occasion, from casual outings to formal events. Its timeless design ensures it remains a staple in your jewelry collection for years to come. Made with the highest quality gold, it's both durable and stunning.",
               initiallyExpanded: true,
             ),
             const CollapsibleSection(
               title: 'Materials & Specifications',
-              content: 'Crafted from solid 18K/22K gold, meticulously hand-polished to achieve an immaculate shine. Avoid exposing to harsh chemicals.',
+              content:
+                  'Crafted from solid 18K/22K gold, meticulously hand-polished to achieve an immaculate shine. Avoid exposing to harsh chemicals.',
             ),
             const CollapsibleSection(
               title: 'Care & Maintenance',
-              content: 'Clean gently with a soft cloth and mild soapy water. Store in the provided velvet pouch when not in use to prevent scratching.',
+              content:
+                  'Clean gently with a soft cloth and mild soapy water. Store in the provided velvet pouch when not in use to prevent scratching.',
             ),
             const CollapsibleSection(
               title: 'Shipping & Returns',
-              content: 'Complimentary insured overnight shipping. Free returns within 30 days of purchase in unworn condition with original packaging.',
+              content:
+                  'Complimentary insured overnight shipping. Free returns within 30 days of purchase in unworn condition with original packaging.',
             ),
             const SizedBox(height: 24),
-            RecommendationList(currentCategory: context.read<ProductProvider>().product['category'] ?? ''),
+            RecommendationList(
+              currentCategory:
+                  context.read<ProductProvider>().product['category'] ?? '',
+            ),
             const SizedBox(height: 24),
             const SimilarProductList(),
           ],
@@ -318,7 +396,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              (product['category'] ?? '').toString().toUpperCase(), 
+              (product['category'] ?? '').toString().toUpperCase(),
               style: const TextStyle(
                 fontSize: 11, // clean brand subhead alignment
                 fontWeight: FontWeight.w600,
@@ -329,30 +407,47 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             GestureDetector(
               onTap: () {
                 final sellers = product['sellers'] as List<dynamic>?;
-                final sellerId = (sellers?.isNotEmpty == true) ? (sellers![0]['userId'] ?? sellers[0]['id']) : null;
+                final sellerId = (sellers?.isNotEmpty == true)
+                    ? (sellers![0]['userId'] ?? sellers[0]['id'])
+                    : null;
                 Navigator.pushNamed(
-                  context, 
-                  '/review', 
+                  context,
+                  '/review',
                   arguments: {
                     'id': product['id'],
                     'sellerId': sellerId,
                     'name': product['name'] ?? 'Product Name',
                     'category': product['category'] ?? 'Category',
                     'price': product['price'] ?? product['basePrice'] ?? 0,
-                    'image': (product['images'] as List?)?.firstWhere((u) => !u.toString().endsWith('.mp4'), orElse: () => ''),
-                  }
+                    'image': (product['images'] as List?)?.firstWhere(
+                      (u) => !u.toString().endsWith('.mp4'),
+                      orElse: () => '',
+                    ),
+                  },
                 );
               },
               behavior: HitTestBehavior.opaque,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(20),
                   gradient: LinearGradient(
-                    colors: [Colors.white.withOpacity(0.6), Colors.white.withOpacity(0.2)],
+                    colors: [
+                      Colors.white.withOpacity(0.6),
+                      Colors.white.withOpacity(0.2),
+                    ],
                   ),
                   border: Border.all(color: Colors.white.withOpacity(0.5)),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))],
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(20),
@@ -361,13 +456,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.star, color: Color(0xFFF5A623), size: 14),
+                        const Icon(
+                          Icons.star,
+                          color: Color(0xFFF5A623),
+                          size: 14,
+                        ),
                         const SizedBox(width: 4),
                         Text(
-                          '${product['rating'] ?? '0.0'} (${product['reviews'] ?? product['reviewCount'] ?? 0} reviews)', 
+                          '${product['rating'] ?? '0.0'} (${product['reviews'] ?? product['reviewCount'] ?? 0} reviews)',
                           style: const TextStyle(
-                            fontSize: 13, 
-                            fontWeight: FontWeight.w600, 
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
                             color: AppColors.ink,
                           ),
                         ),
@@ -381,10 +480,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          product['name'] ?? '', 
+          product['name'] ?? '',
           style: const TextStyle(
             fontSize: 28, // SF Pro Display Token
-            fontWeight: FontWeight.w600, 
+            fontWeight: FontWeight.w600,
             color: AppColors.ink,
             letterSpacing: 0.196,
             height: 1.14,
@@ -402,7 +501,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           children: [
             // Purity
             const Text(
-              'Gold Material Purity', 
+              'Gold Material Purity',
               style: TextStyle(
                 fontSize: 17, // SF Pro body-strong token
                 fontWeight: FontWeight.w600,
@@ -421,21 +520,32 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     behavior: HitTestBehavior.opaque,
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 150),
-                      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 22,
+                        vertical: 12,
+                      ),
                       decoration: BoxDecoration(
                         color: isSelected ? AppColors.ink : AppColors.canvas,
                         border: Border.all(
-                          color: isSelected ? AppColors.ink : AppColors.hairline,
+                          color: isSelected
+                              ? AppColors.ink
+                              : AppColors.hairline,
                           width: 1,
                         ),
-                        borderRadius: BorderRadius.circular(9999), // configurator pill token
+                        borderRadius: BorderRadius.circular(
+                          9999,
+                        ), // configurator pill token
                       ),
                       child: Text(
-                        purity, 
+                        purity,
                         style: TextStyle(
-                          color: isSelected ? AppColors.bodyOnDark : AppColors.ink, 
+                          color: isSelected
+                              ? AppColors.bodyOnDark
+                              : AppColors.ink,
                           fontSize: 15,
-                          fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                          fontWeight: isSelected
+                              ? FontWeight.w600
+                              : FontWeight.w400,
                         ),
                       ),
                     ),
@@ -451,13 +561,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               onSizeSelected: (size) => provider.setSize(size),
             ),
             const SizedBox(height: 24),
-            
+
             // Quantity
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'Quantity', 
+                  'Quantity',
                   style: TextStyle(
                     fontSize: 17, // body-strong token
                     fontWeight: FontWeight.w600,
@@ -475,23 +585,31 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                   child: Row(
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.remove, size: 16, color: AppColors.ink), 
+                        icon: const Icon(
+                          Icons.remove,
+                          size: 16,
+                          color: AppColors.ink,
+                        ),
                         onPressed: () => provider.setQty(provider.qty - 1),
                         splashRadius: 20,
                       ),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         child: Text(
-                          '${provider.qty}', 
+                          '${provider.qty}',
                           style: const TextStyle(
-                            fontSize: 16, 
-                            fontWeight: FontWeight.w600, 
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
                             color: AppColors.ink,
                           ),
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.add, size: 16, color: AppColors.ink), 
+                        icon: const Icon(
+                          Icons.add,
+                          size: 16,
+                          color: AppColors.ink,
+                        ),
                         onPressed: () => provider.setQty(provider.qty + 1),
                         splashRadius: 20,
                       ),
@@ -513,7 +631,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
-
   Widget _buildLoadingState() {
     return Shimmer.fromColors(
       baseColor: Colors.grey[300]!,
@@ -525,7 +642,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           Expanded(
             child: Container(
               width: double.infinity,
-              decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
+              ),
               padding: const EdgeInsets.all(20),
             ),
           ),
@@ -542,7 +662,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Consultants', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF333333))),
+        const Text(
+          'Consultants',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF333333),
+          ),
+        ),
         const SizedBox(height: 12),
         SizedBox(
           height: 80,
@@ -552,7 +679,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             itemBuilder: (context, index) {
               final seller = sellers[index];
               final currentUserUid = FirebaseAuth.instance.currentUser?.uid;
-              final isMe = (seller['userId'] != null && seller['userId'] == currentUserUid) || seller['id'] == currentUserUid;
+              final isMe =
+                  (seller['userId'] != null &&
+                      seller['userId'] == currentUserUid) ||
+                  seller['id'] == currentUserUid;
 
               return Container(
                 width: MediaQuery.of(context).size.width * 0.7,
@@ -566,35 +696,56 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 child: Row(
                   children: [
                     GestureDetector(
-                      onTap: () => Navigator.pushNamed(context, '/seller-profile', arguments: seller),
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        '/seller-profile',
+                        arguments: seller,
+                      ),
                       child: CircleAvatar(
                         radius: 24,
-                        backgroundImage: (seller['avatar'] as String).isNotEmpty ? NetworkImage(seller['avatar']) : null,
+                        backgroundImage: (seller['avatar'] as String).isNotEmpty
+                            ? NetworkImage(seller['avatar'])
+                            : null,
                         backgroundColor: Colors.grey.shade200,
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: GestureDetector(
-                        onTap: () => Navigator.pushNamed(context, '/seller-profile', arguments: seller),
+                        onTap: () => Navigator.pushNamed(
+                          context,
+                          '/seller-profile',
+                          arguments: seller,
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
                               seller['name'],
-                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF333333)),
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF333333),
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: 2),
                             Row(
                               children: [
-                                const Icon(Icons.star, color: Color(0xFFD4AF37), size: 14),
+                                const Icon(
+                                  Icons.star,
+                                  color: Color(0xFFD4AF37),
+                                  size: 14,
+                                ),
                                 const SizedBox(width: 4),
                                 Text(
                                   '${(seller['averageRating'] as num?)?.toStringAsFixed(1) ?? (seller['rating'] as num?)?.toStringAsFixed(1) ?? '0.0'} (${seller['reviewCount'] ?? 0} reviews)',
-                                  style: const TextStyle(fontSize: 12, color: Color(0xFF555555)),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF555555),
+                                  ),
                                 ),
                               ],
                             ),
@@ -605,20 +756,37 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     isMe
                         ? const SizedBox(width: 48, height: 48)
                         : IconButton(
-                            icon: const Icon(Icons.chat_bubble_outline, color: Color(0xFF333333), size: 20),
+                            icon: const Icon(
+                              Icons.chat_bubble_outline,
+                              color: Color(0xFF333333),
+                              size: 20,
+                            ),
                             onPressed: () {
+                              final sellerIdForChat =
+                                  (seller['userId'] as String?) ??
+                                  (seller['id'] as String? ?? '');
+                              context.read<CartProvider>().setActiveConsultant(
+                                seller['id'] as String? ?? sellerIdForChat,
+                              );
                               final productContext = {
                                 'id': product['id'] ?? '',
                                 'name': product['name'] ?? '',
-                                'image': (product['images'] as List<dynamic>?)?.firstWhere(
-                                  (u) => !u.toString().endsWith('.mp4'), orElse: () => '') ?? '',
+                                'image':
+                                    (product['images'] as List<dynamic>?)
+                                        ?.firstWhere(
+                                          (u) => !u.toString().endsWith('.mp4'),
+                                          orElse: () => '',
+                                        ) ??
+                                    '',
                                 'price': product['basePrice'],
                               };
                               Navigator.pushNamed(
                                 context,
                                 '/chat-detail',
                                 arguments: {
-                                  'sellerId': (seller['userId'] as String?) ?? (seller['id'] as String? ?? ''),
+                                  'sellerId':
+                                      (seller['userId'] as String?) ??
+                                      (seller['id'] as String? ?? ''),
                                   'sellerName': seller['name'] ?? 'Seller',
                                   'sellerAvatar': seller['avatar'] ?? '',
                                   'productContext': productContext,

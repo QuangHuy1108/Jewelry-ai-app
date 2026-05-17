@@ -1,14 +1,40 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class CartProvider extends ChangeNotifier {
   final List<Map<String, dynamic>> _items = [];
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  
+  String? _activeConsultantId;
+  String? get activeConsultantId => _activeConsultantId;
+
+  void setActiveConsultant(String? sellerId) async {
+    _activeConsultantId = sellerId;
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (sellerId != null) {
+        await prefs.setString('activeConsultantId', sellerId);
+      } else {
+        await prefs.remove('activeConsultantId');
+      }
+    } catch (_) {}
+  }
 
   CartProvider() {
     _fetchCart();
+    _loadActiveConsultant();
+  }
+
+  Future<void> _loadActiveConsultant() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _activeConsultantId = prefs.getString('activeConsultantId');
+      notifyListeners();
+    } catch (_) {}
   }
 
   Future<void> _fetchCart() async {

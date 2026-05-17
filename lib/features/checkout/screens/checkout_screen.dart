@@ -704,11 +704,25 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             .get();
         sellerId = productDoc.data()?['sellerId'];
       }
-      if (sellerId != null) orderMap['sellerId'] = sellerId;
+      if (sellerId != null) {
+        orderMap['sellerId'] = sellerId;
+        try {
+          final sellerDoc = await FirebaseFirestore.instance.collection('sellers').doc(sellerId).get();
+          if (sellerDoc.exists) {
+            orderMap['sellerName'] = sellerDoc.data()?['name'] ?? 'Consultant';
+          }
+        } catch (_) {}
+      }
 
       // Add customer info so seller can see who ordered
       orderMap['customerName'] = user.displayName ?? user.email ?? 'Customer';
       orderMap['customerAvatar'] = user.photoURL ?? '';
+
+      // Last-Touch Attribution
+      final activeConsultantId = cart.activeConsultantId;
+      if (activeConsultantId != null) {
+        orderMap['affiliateId'] = activeConsultantId;
+      }
 
       // Save to main orders collection
       await FirebaseFirestore.instance
@@ -726,6 +740,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
       // Remove ONLY purchased items
       cart.removeSelectedItems();
+      
+      // Reset Last-Touch Attribution
+      cart.setActiveConsultant(null);
 
       if (mounted) {
         Navigator.pushNamedAndRemoveUntil(
