@@ -197,4 +197,46 @@ class NotificationProvider extends ChangeNotifier {
           .set(item.toJson());
     }
   }
+
+  // Phase 3: Seeding mock telemetry data for AI Analysis testing
+  Future<void> seedNotificationEvents() async {
+    final user = _auth.currentUser;
+    if (user == null) return;
+    try {
+      final batch = _firestore.batch();
+      final now = DateTime.now();
+      
+      // Generate 6 events focused around 21:00 (9 PM) on previous days
+      for (int i = 1; i <= 6; i++) {
+        final date = now.subtract(Duration(days: i));
+        // Spoof the time to be around 21:00 (e.g., 21:05, 21:10)
+        final spoofedTime = DateTime(date.year, date.month, date.day, 21, i * 5); 
+        
+        final docRef = _firestore.collection('notification_events').doc();
+        batch.set(docRef, {
+          'notificationId': 'seed_test_msg_$i',
+          'userId': user.uid,
+          'eventType': 'OPENED',
+          'clientPlatform': 'Android',
+          'timestamp': Timestamp.fromDate(spoofedTime),
+        });
+      }
+      
+      // Add one outlier at 10 AM to prove the algorithm finds the mode
+      final outlierDate = now.subtract(const Duration(days: 7));
+      final outlierTime = DateTime(outlierDate.year, outlierDate.month, outlierDate.day, 10, 0);
+      batch.set(_firestore.collection('notification_events').doc(), {
+        'notificationId': 'seed_test_msg_7',
+        'userId': user.uid,
+        'eventType': 'OPENED',
+        'clientPlatform': 'Android',
+        'timestamp': Timestamp.fromDate(outlierTime),
+      });
+
+      await batch.commit();
+      debugPrint('Seeded 7 notification_events successfully.');
+    } catch (e) {
+      debugPrint('Telemetry Seeding Error: $e');
+    }
+  }
 }

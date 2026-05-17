@@ -35,8 +35,9 @@ exports.recordReferralClick = commissionFunctions.recordReferralClick;
 
 // ── AI Predictive Engagement Engine (Phase 3) ──
 const aiPredictiveEngine = require('./aiPredictiveEngine');
-exports.calibrateUserTimingClusters = aiPredictiveEngine.calibrateUserTimingClusters;
-exports.triggerIntelligentCartRecovery = aiPredictiveEngine.triggerIntelligentCartRecovery;
+exports.calculateOptimalEngagementHours = aiPredictiveEngine.calculateOptimalEngagementHours;
+exports.scheduledPredictiveEngine = aiPredictiveEngine.scheduledPredictiveEngine;
+exports.smartPushHelper = aiPredictiveEngine.smartPushHelper;
 
 // ── Chat Notifications ──
 const chatNotifications = require('./chatNotifications');

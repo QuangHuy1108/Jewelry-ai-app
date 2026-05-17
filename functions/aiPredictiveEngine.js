@@ -1,202 +1,163 @@
+const functions = require('firebase-functions');
+const admin = require('firebase-admin');
+
 /**
  * ═══════════════════════════════════════════════════════════════
  * AI PREDICTIVE ENGAGEMENT & CALIBRATION ENGINE (PHASE 3)
  * ═══════════════════════════════════════════════════════════════
- * 
- * Enforces state-of-the-art predictive messaging patterns. Analyzes telemetry 
- * event clusters to deduce personalized optimal engagement hours, automating 
- * high-conversion follow-ups to maximize lifetime user value (LTV) while 
- * avoiding notification fatigue.
  */
 
-const functions = require('firebase-functions');
-const admin = require('firebase-admin');
-const { resolveTemplate } = require('./templateEngine');
-
-/**
- * 1. PREDICTIVE TIMING CALIBRATION CLUSTER
- * Analyzes historical OPENED events from the decoupled telemetry collection
- * to calculate each user's primary engagement timing vector.
- * 
- * Scaled to run selectively or via explicit CRON sweeps to safeguard against
- * uncontrolled cloud costs.
- */
-exports.calibrateUserTimingClusters = functions.https.onCall(async (data, context) => {
-  // Ensure elevated or authenticated execution contexts
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Execution context denied.');
-  }
-
-  const targetUserId = data.userId || context.auth.uid;
-  const db = admin.firestore();
-
-  try {
-    // Query historical interactions mapping directly to Phase 2 event collectors
+// Logic cốt lõi để tính toán Khung Giờ Vàng (Optimal Engagement Hour)
+async function runPredictiveEngine() {
+    const db = admin.firestore();
+    console.log("Bắt đầu quét dữ liệu sự kiện thông báo (eventType === 'OPENED')...");
+    
+    // Bước 1: Truy vấn toàn bộ dữ liệu OPENED
     const eventsSnap = await db.collection('notification_events')
-      .where('userId', '==', targetUserId)
-      .where('eventType', '==', 'OPENED')
-      .orderBy('timestamp', 'desc')
-      .limit(50)
-      .get();
+        .where('eventType', '==', 'OPENED')
+        .get();
 
     if (eventsSnap.empty) {
-      return { calibrated: false, message: 'Insufficient telemetry events for statistical calibration.' };
+        console.log("Không có dữ liệu sự kiện OPENED nào.");
+        return { success: true, message: 'No OPENED events found.', updatedUsers: 0 };
     }
 
-    // Compute hour distribution histogram
-    const hourHistogram = {};
-    eventsSnap.docs.forEach(doc => {
-      const evt = doc.data();
-      if (evt.timestamp) {
-        const dateObj = evt.timestamp.toDate ? evt.timestamp.toDate() : new Date(evt.timestamp);
+    // Gom nhóm danh sách sự kiện theo từng userId
+    const userHistograms = {};
+    
+    eventsSnap.forEach(doc => {
+        const evt = doc.data();
+        const uid = evt.userId;
+        const timestamp = evt.timestamp;
+        
+        if (!uid || !timestamp) return;
+
+        // Trích xuất thành phần Giờ
+        let dateObj;
+        if (timestamp.toDate) {
+            dateObj = timestamp.toDate();
+        } else {
+            dateObj = new Date(timestamp);
+        }
+
         const hour = dateObj.getHours();
-        hourHistogram[hour] = (hourHistogram[hour] || 0) + 1;
-      }
+
+        if (!userHistograms[uid]) {
+            userHistograms[uid] = {};
+        }
+        userHistograms[uid][hour] = (userHistograms[uid][hour] || 0) + 1;
     });
 
-    // Resolve optimal hour vector via maximum frequency density
-    let optimalHour = 12; // Base default 12 PM
-    let maxHits = -1;
+    const batch = db.batch();
+    let updatedCount = 0;
 
-    for (const [hourStr, hits] of Object.entries(hourHistogram)) {
-      if (hits > maxHits) {
-        maxHits = hits;
-        optimalHour = parseInt(hourStr, 10);
-      }
+    // Tính toán tìm ra giá trị "Yếu vị" (Mode) cho mỗi user
+    for (const [uid, hourHistogram] of Object.entries(userHistograms)) {
+        let bestHour = 12; // Giờ mặc định
+        let maxHits = -1;
+
+        for (const [hourStr, hits] of Object.entries(hourHistogram)) {
+            if (hits > maxHits) {
+                maxHits = hits;
+                bestHour = parseInt(hourStr, 10);
+            }
+        }
+
+        // Bước 2: Đồng bộ hóa ngược về Firestore (sử dụng merge: true)
+        const userRef = db.collection('users').doc(uid);
+        batch.set(userRef, {
+            analytics: {
+                optimalEngagementHour: bestHour,
+                lastAIPrediction: admin.firestore.FieldValue.serverTimestamp()
+            }
+        }, { merge: true });
+
+        updatedCount++;
+        console.log(`User ${uid}: Khung giờ vàng là ${bestHour}h (với ${maxHits} lần mở)`);
+        
+        // Push batch mỗi 500 records
+        if (updatedCount % 500 === 0) {
+            await batch.commit();
+        }
     }
 
-    // Write persistent calibration properties back to root profile nodes
-    await db.collection('users').doc(targetUserId).set({
-      engagementIntelligence: {
-        optimalHour: optimalHour,
-        sampleSize: eventsSnap.size,
-        lastCalibratedAt: admin.firestore.FieldValue.serverTimestamp(),
-        confidenceScore: Math.min(1.0, eventsSnap.size / 30)
-      }
-    }, { merge: true });
+    if (updatedCount % 500 !== 0) {
+        await batch.commit();
+    }
 
-    return { 
-      calibrated: true, 
-      optimalEngagementHour: optimalHour,
-      dataPointsAnalyzed: eventsSnap.size
-    };
-
-  } catch (err) {
-    console.error('Calibration failure:', err);
-    throw new functions.https.HttpsError('internal', 'Calibration calculation aborted.');
-  }
-});
-
+    console.log(`Đã tính toán và cập nhật thành công cho ${updatedCount} users.`);
+    return { success: true, updatedUsers: updatedCount };
+}
 
 /**
- * 2. AUTOMATED ABANDONMENT CONVERSION ENGINE
- * Dispatches hyper-tailored predictive acquisition reminders automatically
- * when checking idle shopping session structures.
+ * Hàm HTTP Callable: Kích hoạt thủ công luồng AI để kiểm thử
  */
-exports.triggerIntelligentCartRecovery = functions.https.onCall(async (data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Unauthorized triggering.');
-  }
-
-  const userId = context.auth.uid;
-  const db = admin.firestore();
-
-  try {
-    const userDoc = await db.collection('users').doc(userId).get();
-    if (!userDoc.exists) return { success: false, reason: 'Profile missing' };
-
-    const userData = userDoc.data();
-    const fcmToken = userData.fcmToken;
-    const cartItems = userData.cart || [];
-
-    if (cartItems.length === 0) {
-      return { success: false, reason: 'Cart empty' };
+exports.calculateOptimalEngagementHours = functions.https.onCall(async (data, context) => {
+    try {
+        return await runPredictiveEngine();
+    } catch (err) {
+        console.error('Lỗi khi chạy Predictive Engine:', err);
+        throw new functions.https.HttpsError('internal', 'Lỗi hệ thống: ' + err.message);
     }
-
-    // Fetch primary item details to build personalized luxury imagery parameters
-    const primaryItem = cartItems[0];
-    let productName = 'Curated Handcrafted Piece';
-    let productImg = 'https://zink.cdn/assets/placeholder.jpg';
-
-    if (primaryItem.productId) {
-      const prdSnap = await db.collection('products').doc(primaryItem.productId).get();
-      if (prdSnap.exists) {
-        productName = prdSnap.data().name || productName;
-        const images = prdSnap.data().images || [];
-        if (images.length > 0) productImg = images[0];
-      }
-    }
-
-    // Check user intelligence boundaries to compute custom ML priority boosts
-    const aiPrefs = userData.engagementIntelligence || {};
-    const optimalHour = aiPrefs.optimalHour ?? 19; // Default evening browsing hour
-    const currentHour = new Date().getHours();
-    
-    // Boost relevance priority dynamically if current server window aligns with predicted profile behavior
-    const isOptimalWindow = Math.abs(currentHour - optimalHour) <= 2;
-    const computedBoostScore = isOptimalWindow ? 150 : 50;
-
-    // Resolve persistent document strings via dynamic template subsystem
-    const templateKey = 'CART_RECOVERY';
-    const resolved = await resolveTemplate(templateKey, { productName: productName });
-
-    const finalTitle = resolved.title || '✨ Timeless beauty awaits.';
-    const finalBody = resolved.body || `Your reserved piece "${productName}" remains protected in our digital vault. Complete secure acquisition before inventory releases.`;
-
-    const expiresDate = new Date();
-    expiresDate.setDate(expiresDate.getDate() + 2); // 48-hour short TTL for idle conversion drives
-
-    // Write persistence document ensuring cross-device UI rendering
-    const notifRef = await db.collection('users').doc(userId).collection('notifications').add({
-      title: finalTitle,
-      body: finalBody,
-      type: 'promotion',
-      deepLink: '/cart',
-      image: productImg,
-      priority: 'medium',
-      level: 'marketing',
-      role: 'buyer',
-      status: 'DELIVERED',
-      isRead: false,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      expiresAt: expiresDate,
-      metadata: {
-        aiOptimalPriority: computedBoostScore,
-        productId: primaryItem.productId || null,
-        scheduledDeliveryHour: optimalHour
-      }
-    });
-
-    // Execute standard transport push targeting target devices
-    if (fcmToken) {
-      await admin.messaging().send({
-        token: fcmToken,
-        notification: {
-          title: finalTitle,
-          body: finalBody,
-          imageUrl: productImg
-        },
-        data: {
-          type: 'promotion',
-          deepLink: '/cart',
-          notificationId: notifRef.id,
-          priority: 'medium',
-          level: 'marketing',
-          role: 'buyer',
-          aiOptimalPriority: String(computedBoostScore)
-        }
-      }).catch(e => console.warn('FCM broadcast failure during cart push:', e.message));
-    }
-
-    return { 
-      success: true, 
-      dispatched: true,
-      boostScoreApplied: computedBoostScore,
-      targetProduct: productName
-    };
-
-  } catch (err) {
-    console.error('Cart conversion error:', err);
-    throw new functions.https.HttpsError('internal', 'Cart automation routing skipped.');
-  }
 });
+
+/**
+ * Hàm Pub/Sub: Chạy định kỳ hàng tuần (Chủ nhật lúc 00:00)
+ */
+exports.scheduledPredictiveEngine = functions.pubsub.schedule('every sunday 00:00').onRun(async (context) => {
+    try {
+        await runPredictiveEngine();
+    } catch (err) {
+        console.error('Lỗi khi chạy CronJob Predictive Engine:', err);
+    }
+    return null;
+});
+
+/**
+ * Bước 3: Bộ khung chặn gửi (Delay Push Helper)
+ * Hàm kiểm tra và quyết định gửi ngay hay hoãn thông báo dựa trên Khung Giờ Vàng
+ */
+exports.smartPushHelper = async (userId, notificationPayload) => {
+    const db = admin.firestore();
+    try {
+        const userDoc = await db.collection('users').doc(userId).get();
+        if (!userDoc.exists) {
+            console.log(`[SmartPush] User ${userId} không tồn tại.`);
+            return false;
+        }
+
+        const userData = userDoc.data();
+        const fcmToken = userData.fcmToken;
+        
+        if (!fcmToken) {
+            console.log(`[SmartPush] User ${userId} chưa có FCM Token.`);
+            return false;
+        }
+
+        const optimalHour = userData.analytics?.optimalEngagementHour;
+        const currentHour = new Date().getHours();
+
+        // Kiểm tra xem giờ hiện tại có khớp với optimalHour hay không
+        if (optimalHour !== undefined && currentHour !== optimalHour) {
+            console.log(`[SmartPush] Chưa đến khung giờ vàng của user ${userId} (Hiện tại: ${currentHour}h, Vàng: ${optimalHour}h).`);
+            console.log(`[SmartPush] Hoãn tiến trình gửi Push và đưa vào hàng đợi scheduled_notifications.`);
+            
+            // TODO (Tương lai): Lưu notificationPayload vào collection scheduled_notifications
+            return false; 
+        }
+
+        console.log(`[SmartPush] Thời điểm lý tưởng! Đang gửi Push ngay lập tức cho user ${userId} vào lúc ${currentHour}h.`);
+        
+        // Nếu trùng hoặc chưa phân tích, gọi FCM gửi ngay lập tức
+        await admin.messaging().send({
+            token: fcmToken,
+            notification: notificationPayload.notification,
+            data: notificationPayload.data
+        });
+
+        return true;
+    } catch (error) {
+        console.error(`[SmartPush] Lỗi khi xử lý cho user ${userId}:`, error);
+        return false;
+    }
+};
