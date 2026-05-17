@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../models/chat_model.dart';
@@ -25,6 +26,9 @@ class ChatProvider extends ChangeNotifier {
   // Subscriptions
   StreamSubscription<List<ChatModel>>? _chatListSub;
   StreamSubscription<List<MessageModel>>? _messagesSub;
+  Timer? _markReadTimer;
+  Timer? _batchFetchTimer;
+  final Set<String> _pendingProfileFetches = {};
 
   // ─── Getters ────────────────────────────────────────────────────────────────
 
@@ -93,7 +97,7 @@ class ChatProvider extends ChangeNotifier {
     _chatListSub = _service.getUserChats(uid).listen(
       (chats) async {
         // Filter out chats that the user has soft-deleted
-        _userChats = chats.where((c) => !c.deletedBy.contains(uid)).toList();
+        _userChats = chats.where((c) => !(c.deletedBy ?? []).contains(uid)).toList();
         _isLoadingChats = false;
         // Pre-fetch unknown profiles for the other person in each chat
         for (final chat in _userChats) {
@@ -120,6 +124,7 @@ class ChatProvider extends ChangeNotifier {
   void closeActiveChat() {
     _activeChatId = null;
     _messagesSub?.cancel();
+    _markReadTimer?.cancel();
     _activeMessages = [];
     // Defer notification to avoid "setState() called during build/dispose" errors
     Future.microtask(() => notifyListeners());
@@ -192,7 +197,10 @@ class ChatProvider extends ChangeNotifier {
         _isLoadingMessages = false;
         
         // Auto mark as read while the chat is actively open
-        markAllAsSeen(chatId);
+        _markReadTimer?.cancel();
+        _markReadTimer = Timer(const Duration(milliseconds: 500), () {
+          markAllAsSeen(chatId);
+        });
         
         notifyListeners();
       },
@@ -277,11 +285,37 @@ class ChatProvider extends ChangeNotifier {
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
-  Future<void> _fetchProfile(String uid) async {
-    final profile = await _service.getUserProfile(uid);
-    if (profile != null) {
-      _profileCache[uid] = profile;
-      notifyListeners();
+  void _fetchProfile(String uid) {
+    if (_profileCache.containsKey(uid) || _pendingProfileFetches.contains(uid)) return;
+
+    _pendingProfileFetches.add(uid);
+
+    _batchFetchTimer?.cancel();
+    _batchFetchTimer = Timer(const Duration(milliseconds: 50), _executeBatchFetch);
+  }
+
+  Future<void> _executeBatchFetch() async {
+    if (_pendingProfileFetches.isEmpty) return;
+
+    final uidsToFetch = _pendingProfileFetches.toList();
+    _pendingProfileFetches.clear();
+
+    // Firestore whereIn supports up to 10 items at a time
+    for (int i = 0; i < uidsToFetch.length; i += 10) {
+      final chunk = uidsToFetch.sublist(i, i + 10 > uidsToFetch.length ? uidsToFetch.length : i + 10);
+      try {
+        final querySnapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .where(FieldPath.documentId, whereIn: chunk)
+            .get();
+
+        for (final doc in querySnapshot.docs) {
+          _profileCache[doc.id] = doc.data();
+        }
+        notifyListeners();
+      } catch (e) {
+        debugPrint('Batch fetch profiles error: $e');
+      }
     }
   }
 

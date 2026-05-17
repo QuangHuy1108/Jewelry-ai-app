@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'firebase_options.dart';
 import 'router/app_router.dart';
 import 'package:provider/provider.dart';
@@ -49,7 +50,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     // Set online when app starts
-    _userService.setOnlineStatus(true);
+    if (FirebaseAuth.instance.currentUser != null) {
+      _userService.setOnlineStatus(true);
+    }
   }
 
   @override
@@ -60,17 +63,19 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    switch (state) {
-      case AppLifecycleState.resumed:
-        _userService.setOnlineStatus(true);
-        break;
-      case AppLifecycleState.paused:
-      case AppLifecycleState.detached:
-      case AppLifecycleState.inactive:
-        _userService.setOnlineStatus(false);
-        break;
-      default:
-        break;
+    if (FirebaseAuth.instance.currentUser != null) {
+      switch (state) {
+        case AppLifecycleState.resumed:
+          _userService.setOnlineStatus(true);
+          break;
+        case AppLifecycleState.paused:
+        case AppLifecycleState.detached:
+        case AppLifecycleState.inactive:
+          _userService.setOnlineStatus(false);
+          break;
+        default:
+          break;
+      }
     }
   }
 

@@ -513,10 +513,11 @@ class _AddCardScreenState extends State<AddCardScreen> with SingleTickerProvider
 
     if (_saveCard) {
       try {
+        // Simulate obtaining a token from a payment gateway instead of passing raw card details
+        final mockToken = 'tok_${DateTime.now().millisecondsSinceEpoch}';
         await PaymentService().addPaymentMethod(
           holderName: _holderController.text.trim(),
-          cardNumber: rawNumber,
-          expiry: _expiryController.text,
+          token: mockToken,
           cardType: _cardType,
         );
       } catch (e) {

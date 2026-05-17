@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shimmer/shimmer.dart';
@@ -326,22 +327,54 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ),
             ),
             GestureDetector(
-              onTap: () => Navigator.pushNamed(context, '/review'),
+              onTap: () {
+                final sellers = product['sellers'] as List<dynamic>?;
+                final sellerId = (sellers?.isNotEmpty == true) ? (sellers![0]['userId'] ?? sellers[0]['id']) : null;
+                Navigator.pushNamed(
+                  context, 
+                  '/review', 
+                  arguments: {
+                    'id': product['id'],
+                    'sellerId': sellerId,
+                    'name': product['name'] ?? 'Product Name',
+                    'category': product['category'] ?? 'Category',
+                    'price': product['price'] ?? product['basePrice'] ?? 0,
+                    'image': (product['images'] as List?)?.firstWhere((u) => !u.toString().endsWith('.mp4'), orElse: () => ''),
+                  }
+                );
+              },
               behavior: HitTestBehavior.opaque,
-              child: Row(
-                children: [
-                  const Icon(Icons.star, color: Color(0xFFF5A623), size: 14), // subtle curated gold tone
-                  const SizedBox(width: 4),
-                  Text(
-                    '${product['rating']} (${product['reviews']} reviews)', 
-                    style: const TextStyle(
-                      fontSize: 13, 
-                      fontWeight: FontWeight.w600, 
-                      color: AppColors.ink,
-                      decoration: TextDecoration.underline,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  gradient: LinearGradient(
+                    colors: [Colors.white.withOpacity(0.6), Colors.white.withOpacity(0.2)],
+                  ),
+                  border: Border.all(color: Colors.white.withOpacity(0.5)),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.star, color: Color(0xFFF5A623), size: 14),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${product['rating'] ?? '0.0'} (${product['reviews'] ?? product['reviewCount'] ?? 0} reviews)', 
+                          style: const TextStyle(
+                            fontSize: 13, 
+                            fontWeight: FontWeight.w600, 
+                            color: AppColors.ink,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
             ),
           ],
@@ -554,13 +587,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
+                            const SizedBox(height: 2),
                             Row(
                               children: [
-                                const Icon(Icons.star, color: Color(0xFFFFD700), size: 12),
+                                const Icon(Icons.star, color: Color(0xFFD4AF37), size: 14),
                                 const SizedBox(width: 4),
                                 Text(
-                                  '${seller['rating']} Rating',
-                                  style: const TextStyle(fontSize: 12, color: Color(0xFF999999)),
+                                  '${(seller['averageRating'] as num?)?.toStringAsFixed(1) ?? (seller['rating'] as num?)?.toStringAsFixed(1) ?? '0.0'} (${seller['reviewCount'] ?? 0} reviews)',
+                                  style: const TextStyle(fontSize: 12, color: Color(0xFF555555)),
                                 ),
                               ],
                             ),

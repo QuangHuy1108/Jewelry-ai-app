@@ -18,8 +18,7 @@ class PaymentService {
 
   Future<void> addPaymentMethod({
     required String holderName,
-    required String cardNumber,
-    required String expiry,
+    required String token,
     required String cardType,
   }) async {
     final user = _auth.currentUser;
@@ -27,8 +26,7 @@ class PaymentService {
 
     await _firestore.collection('users').doc(user.uid).collection('payment_methods').add({
       'holderName': holderName,
-      'cardNumber': cardNumber,
-      'expiry': expiry,
+      'token': token,
       'cardType': cardType,
       'createdAt': FieldValue.serverTimestamp(),
     });

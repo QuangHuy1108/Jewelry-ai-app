@@ -14,18 +14,31 @@ class _ProductReviewScreenState extends State<ProductReviewScreen> with TickerPr
   final List<String> _filters = ['All', 'Verified', 'Latest', 'Detailed Reviews'];
 
   List<Map<String, dynamic>> _reviews = [];
+  List<Map<String, dynamic>> _sellerReviews = [];
   bool _isLoadingReviews = true;
+  bool _isLoadingSellerReviews = true;
   String _productId = '';
+  String _sellerId = '';
+
+  late TabController _tabController;
 
   late AnimationController _barController;
   late Animation<double> _barAnimation;
+  Map<String, dynamic>? _productArgs;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() => setState(() {}));
+    _searchController.addListener(_onSearchChanged);
     _barController = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 1000));
     _barAnimation = CurvedAnimation(parent: _barController, curve: Curves.easeOut);
+  }
+
+  void _onSearchChanged() {
+    setState(() {});
   }
 
   @override
@@ -36,13 +49,19 @@ class _ProductReviewScreenState extends State<ProductReviewScreen> with TickerPr
     if (args is String && args.isNotEmpty) {
       _productId = args;
     } else if (args is Map<String, dynamic>) {
-      _productId = args['productId']?.toString() ?? '';
+      _productId = (args['id'] ?? args['productId'])?.toString() ?? '';
+      _sellerId = args['sellerId']?.toString() ?? '';
+      _productArgs = args;
     }
     if (_productId.isNotEmpty && _isLoadingReviews) {
       _loadReviews();
     } else if (_productId.isEmpty && _isLoadingReviews) {
-      // Fallback: load reviews from the first available product
       _loadFallbackReviews();
+    }
+    if (_sellerId.isNotEmpty && _isLoadingSellerReviews) {
+      _loadSellerReviews();
+    } else {
+      _isLoadingSellerReviews = false;
     }
   }
 
@@ -64,6 +83,25 @@ class _ProductReviewScreenState extends State<ProductReviewScreen> with TickerPr
     } catch (_) {
       if (mounted) setState(() => _isLoadingReviews = false);
       _barController.forward();
+    }
+  }
+
+  Future<void> _loadSellerReviews() async {
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('sellers')
+          .doc(_sellerId)
+          .collection('reviews')
+          .orderBy('createdAt', descending: true)
+          .get();
+      if (mounted) {
+        setState(() {
+          _sellerReviews = snap.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+          _isLoadingSellerReviews = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingSellerReviews = false);
     }
   }
 
@@ -101,24 +139,60 @@ class _ProductReviewScreenState extends State<ProductReviewScreen> with TickerPr
     }
   }
 
+  List<Map<String, dynamic>> get _currentReviews {
+    return _tabController.index == 0 ? _reviews : _sellerReviews;
+  }
+
   double get _averageRating {
-    if (_reviews.isEmpty) return 0.0;
-    final total = _reviews.fold<double>(0, (acc, r) => acc + ((r['rating'] as num?)?.toDouble() ?? 0));
-    return total / _reviews.length;
+    if (_currentReviews.isEmpty) return 0.0;
+    final total = _currentReviews.fold<double>(0, (acc, r) => acc + ((r['rating'] as num?)?.toDouble() ?? 0));
+    return total / _currentReviews.length;
   }
 
   Map<int, double> get _ratingDistribution {
-    if (_reviews.isEmpty) return {5: 0, 4: 0, 3: 0, 2: 0, 1: 0};
+    if (_currentReviews.isEmpty) return {5: 0, 4: 0, 3: 0, 2: 0, 1: 0};
     final dist = <int, int>{5: 0, 4: 0, 3: 0, 2: 0, 1: 0};
-    for (final r in _reviews) {
+    for (final r in _currentReviews) {
       final rating = ((r['rating'] as num?)?.toDouble() ?? 0).round().clamp(1, 5);
       dist[rating] = (dist[rating] ?? 0) + 1;
     }
-    return dist.map((k, v) => MapEntry(k, v / _reviews.length));
+    return dist.map((k, v) => MapEntry(k, v / _currentReviews.length));
+  }
+
+  List<Map<String, dynamic>> get _filteredReviews {
+    var result = _currentReviews;
+    final query = _searchController.text.trim().toLowerCase();
+    if (query.isNotEmpty) {
+      result = result.where((r) => 
+        (r['comment']?.toString().toLowerCase() ?? '').contains(query) ||
+        (r['name']?.toString().toLowerCase() ?? '').contains(query)
+      ).toList();
+    }
+    if (_selectedFilter == 'Verified') {
+      result = result.where((r) => r['isVerified'] == true).toList();
+    } else if (_selectedFilter == 'Detailed Reviews') {
+      result = result.where((r) => (r['comment']?.toString().length ?? 0) > 20).toList();
+    }
+    return result;
+  }
+
+  String _formatDate(dynamic timestamp) {
+    if (timestamp == null) return 'Recently';
+    DateTime date;
+    if (timestamp is Timestamp) {
+      date = timestamp.toDate();
+    } else if (timestamp is String) {
+      return timestamp;
+    } else {
+      return 'Recently';
+    }
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 
   @override
   void dispose() {
+    _tabController.dispose();
     _searchController.dispose();
     _barController.dispose();
     super.dispose();
@@ -132,23 +206,37 @@ class _ProductReviewScreenState extends State<ProductReviewScreen> with TickerPr
       body: Column(
         children: [
           Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: TabBarView(
+              controller: _tabController,
               children: [
-                const SizedBox(height: 20),
-                _buildRatingSummary(),
-                const SizedBox(height: 30),
-                _buildSearchBar(),
-                const SizedBox(height: 20),
-                _buildFilterChips(),
-                const SizedBox(height: 20),
-                _buildReviewList(),
+                _buildReviewTabContent(),
+                _buildReviewTabContent(),
               ],
             ),
           ),
           _buildFooter(),
         ],
       ),
+    );
+  }
+
+  Widget _buildReviewTabContent() {
+    final bool isLoading = _tabController.index == 0 ? _isLoadingReviews : _isLoadingSellerReviews;
+    if (isLoading) {
+      return const Center(child: CircularProgressIndicator(color: Colors.black));
+    }
+    return ListView(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      children: [
+        const SizedBox(height: 20),
+        _buildRatingSummary(),
+        const SizedBox(height: 30),
+        _buildSearchBar(),
+        const SizedBox(height: 20),
+        _buildFilterChips(),
+        const SizedBox(height: 20),
+        _buildReviewList(),
+      ],
     );
   }
 
@@ -171,7 +259,7 @@ class _ProductReviewScreenState extends State<ProductReviewScreen> with TickerPr
         ),
       ),
       title: const Text(
-        'Review',
+        'Reviews',
         style: TextStyle(
           color: Color(0xFF333333),
           fontSize: 18,
@@ -179,6 +267,17 @@ class _ProductReviewScreenState extends State<ProductReviewScreen> with TickerPr
         ),
       ),
       centerTitle: true,
+      bottom: TabBar(
+        controller: _tabController,
+        labelColor: const Color(0xFF333333),
+        unselectedLabelColor: const Color(0xFF999999),
+        indicatorColor: const Color(0xFF333333),
+        indicatorWeight: 3,
+        tabs: const [
+          Tab(text: 'Product Reviews'),
+          Tab(text: 'Seller Reviews'),
+        ],
+      ),
     );
   }
 
@@ -205,7 +304,7 @@ class _ProductReviewScreenState extends State<ProductReviewScreen> with TickerPr
             ),
             const SizedBox(height: 8),
             Text(
-              '${_reviews.length} Reviews',
+              '${_currentReviews.length} Reviews',
               style: const TextStyle(color: Color(0xFF999999), fontSize: 14),
             ),
           ],
@@ -341,16 +440,23 @@ class _ProductReviewScreenState extends State<ProductReviewScreen> with TickerPr
   }
 
   Widget _buildReviewList() {
+    final reviewsToDisplay = _filteredReviews;
+    if (reviewsToDisplay.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 40),
+        child: Center(child: Text("No reviews match your filters.", style: TextStyle(color: Colors.grey))),
+      );
+    }
     return ListView.separated(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: _reviews.length,
+      itemCount: reviewsToDisplay.length,
       separatorBuilder: (_, __) => const Padding(
         padding: EdgeInsets.symmetric(vertical: 20),
         child: Divider(color: Color(0xFFF5F5F5), height: 1),
       ),
       itemBuilder: (context, index) {
-        final review = _reviews[index];
+        final review = reviewsToDisplay[index];
         return _buildReviewCard(review);
       },
     );
@@ -366,21 +472,10 @@ class _ProductReviewScreenState extends State<ProductReviewScreen> with TickerPr
               children: [
                 CircleAvatar(
                   radius: 22,
-                  backgroundImage: (review['avatar'] as String).isNotEmpty ? NetworkImage(review['avatar']) : null,
+                  backgroundImage: (review['avatar']?.toString() ?? '').isNotEmpty ? NetworkImage(review['avatar']) : null,
+                  backgroundColor: Colors.grey.shade200,
+                  child: (review['avatar']?.toString() ?? '').isEmpty ? const Icon(Icons.person, color: Colors.grey) : null,
                 ),
-                if (review['isVerified'])
-                  Positioned(
-                    right: 0,
-                    bottom: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(1),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.check_circle, color: Colors.blue, size: 14),
-                    ),
-                  ),
               ],
             ),
             const SizedBox(width: 12),
@@ -388,12 +483,22 @@ class _ProductReviewScreenState extends State<ProductReviewScreen> with TickerPr
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    review['name'],
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF333333)),
+                  Row(
+                    children: [
+                      Text(
+                        review['name'] ?? 'Anonymous User',
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF333333)),
+                      ),
+                      if (review['isVerified'] == true) ...[
+                        const SizedBox(width: 6),
+                        const Icon(Icons.check_circle, color: Colors.blue, size: 14),
+                        const SizedBox(width: 4),
+                        const Text('Verified Purchase', style: TextStyle(fontSize: 11, color: Colors.blue, fontWeight: FontWeight.w600)),
+                      ],
+                    ],
                   ),
                   Text(
-                    review['date'],
+                    _formatDate(review['createdAt'] ?? review['date']),
                     style: const TextStyle(fontSize: 12, color: Color(0xFF999999)),
                   ),
                 ],
@@ -413,7 +518,7 @@ class _ProductReviewScreenState extends State<ProductReviewScreen> with TickerPr
         ),
         const SizedBox(height: 12),
         Text(
-          review['comment'],
+          review['comment'] ?? '',
           style: const TextStyle(
             fontSize: 14,
             color: Color(0xFF777777),
@@ -444,7 +549,7 @@ class _ProductReviewScreenState extends State<ProductReviewScreen> with TickerPr
       ),
       child: GestureDetector(
         onTap: () {
-          Navigator.pushNamed(context, '/leave-review');
+          Navigator.pushNamed(context, '/leave-review', arguments: _productArgs);
         },
         child: Container(
           height: 55,

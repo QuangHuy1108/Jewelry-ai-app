@@ -42,3 +42,9 @@ exports.smartPushHelper = aiPredictiveEngine.smartPushHelper;
 // ── Chat Notifications ──
 const chatNotifications = require('./chatNotifications');
 exports.onChatMessageCreated = chatNotifications.onChatMessageCreated;
+
+// ── Reviews & Ratings ──
+const reviewFunctions = require('./reviewFunctions');
+exports.onReviewUpdated = reviewFunctions.onReviewUpdated;
+exports.submitReview = reviewFunctions.submitReview;
+exports.onSellerReviewWritten = reviewFunctions.onSellerReviewWritten;
