@@ -6,9 +6,9 @@ import 'package:flutter/material.dart';
 /// animated shimmer scan line, and a capture button.
 class LuxuryScannerHUD extends StatefulWidget {
   final bool isScanning;
-  final VoidCallback onScanPressed;
+  final Function(String mode) onScanPressed;
   final VoidCallback onClose;
-  final VoidCallback? onGalleryPressed;
+  final Function(String mode)? onGalleryPressed;
 
   const LuxuryScannerHUD({
     super.key,
@@ -32,6 +32,12 @@ class _LuxuryScannerHUDState extends State<LuxuryScannerHUD>
 
   late AnimationController _pulseController;
   late Animation<double> _pulseScale;
+
+  // Track the selected scan mode:
+  // - 'visual' (Visual Search - most important, default)
+  // - 'material' (Material Analysis)
+  // - 'style' (Style & Fashion Recommendation)
+  String _selectedMode = 'visual';
 
   @override
   void initState() {
@@ -102,8 +108,42 @@ class _LuxuryScannerHUDState extends State<LuxuryScannerHUD>
     super.dispose();
   }
 
-  static const _gold = Color(0xFFD4AF37);
-  static const _goldLight = Color(0xFFE8D48B);
+  // Dynamic Theme Colors based on mode
+  Color get _currentThemeColor {
+    switch (_selectedMode) {
+      case 'material':
+        return const Color(0xFFC0C0C0); // Premium Silver
+      case 'style':
+        return const Color(0xFFB76E79); // Rose Gold
+      case 'visual':
+      default:
+        return const Color(0xFFD4AF37); // Classic Gold
+    }
+  }
+
+  Color get _currentThemeLightColor {
+    switch (_selectedMode) {
+      case 'material':
+        return const Color(0xFFE5E4E2);
+      case 'style':
+        return const Color(0xFFE8C3C9);
+      case 'visual':
+      default:
+        return const Color(0xFFE8D48B);
+    }
+  }
+
+  String get _modeTitleText {
+    switch (_selectedMode) {
+      case 'material':
+        return 'MATERIAL ANALYSIS';
+      case 'style':
+        return 'STYLE ADVISOR';
+      case 'visual':
+      default:
+        return 'ZINK AI FINDER';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -142,12 +182,12 @@ class _LuxuryScannerHUDState extends State<LuxuryScannerHUD>
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: _gold.withValues(alpha: glowAlpha * 0.6),
+                      color: _currentThemeColor.withValues(alpha: glowAlpha * 0.6),
                       blurRadius: 20,
                       spreadRadius: 2,
                     ),
                     BoxShadow(
-                      color: _gold.withValues(alpha: glowAlpha * 0.3),
+                      color: _currentThemeColor.withValues(alpha: glowAlpha * 0.3),
                       blurRadius: 40,
                       spreadRadius: 4,
                     ),
@@ -158,7 +198,7 @@ class _LuxuryScannerHUDState extends State<LuxuryScannerHUD>
           ),
         ),
 
-        // Layer 3: Gold corner accents
+        // Layer 3: Dynamic Corner Accents
         _buildCornerAccent(frameLeft, frameTop, topLeft: true),
         _buildCornerAccent(frameLeft + frameWidth, frameTop, topRight: true),
         _buildCornerAccent(frameLeft, frameTop + frameHeight, bottomLeft: true),
@@ -178,19 +218,19 @@ class _LuxuryScannerHUDState extends State<LuxuryScannerHUD>
                   height: 3,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(2),
-                    gradient: const LinearGradient(
+                    gradient: LinearGradient(
                       colors: [
                         Colors.transparent,
-                        _goldLight,
-                        _gold,
-                        _goldLight,
+                        _currentThemeLightColor,
+                        _currentThemeColor,
+                        _currentThemeLightColor,
                         Colors.transparent,
                       ],
-                      stops: [0.0, 0.2, 0.5, 0.8, 1.0],
+                      stops: const [0.0, 0.2, 0.5, 0.8, 1.0],
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: _gold.withValues(alpha: 0.6),
+                        color: _currentThemeColor.withValues(alpha: 0.6),
                         blurRadius: 12,
                         spreadRadius: 3,
                       ),
@@ -235,25 +275,26 @@ class _LuxuryScannerHUDState extends State<LuxuryScannerHUD>
             borderRadius: BorderRadius.circular(16),
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: Container(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.35),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.15),
+                    color: _currentThemeColor.withValues(alpha: 0.4),
                   ),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.auto_awesome, color: _gold, size: 14),
-                    SizedBox(width: 4),
+                    Icon(Icons.auto_awesome, color: _currentThemeColor, size: 14),
+                    const SizedBox(width: 6),
                     Text(
-                      'ZINK AI',
-                      style: TextStyle(
+                      _modeTitleText,
+                      style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 12,
+                        fontSize: 11,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1.5,
                       ),
@@ -274,10 +315,14 @@ class _LuxuryScannerHUDState extends State<LuxuryScannerHUD>
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 300),
               child: widget.isScanning
-                  ? const Text(
-                      'Analyzing jewelry profile...',
-                      key: ValueKey('scanning'),
-                      style: TextStyle(
+                  ? Text(
+                      _selectedMode == 'material'
+                          ? 'Analyzing structural materials...'
+                          : _selectedMode == 'style'
+                              ? 'Analyzing style & matching outfits...'
+                              : 'Searching global jewelry index...',
+                      key: ValueKey('scanning_$_selectedMode'),
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
@@ -285,10 +330,14 @@ class _LuxuryScannerHUDState extends State<LuxuryScannerHUD>
                         shadows: [Shadow(color: Colors.black54, blurRadius: 6)],
                       ),
                     )
-                  : const Text(
-                      'Position jewelry within the frame',
-                      key: ValueKey('idle'),
-                      style: TextStyle(
+                  : Text(
+                      _selectedMode == 'material'
+                          ? 'Position piece for detailed metal & stone scan'
+                          : _selectedMode == 'style'
+                              ? 'Capture fashion profile for recommendations'
+                              : 'Align jewelry to discover exact match',
+                      key: ValueKey('idle_$_selectedMode'),
+                      style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 14,
                         shadows: [Shadow(color: Colors.black54, blurRadius: 6)],
@@ -298,7 +347,17 @@ class _LuxuryScannerHUDState extends State<LuxuryScannerHUD>
           ),
         ),
 
-        // Layer 8: Bottom action bar (Gallery + Capture + placeholder for symmetry)
+        // Mode Selector: Horizontal sliding picker right above the bottom action bar
+        Positioned(
+          bottom: MediaQuery.of(context).padding.bottom + 144,
+          left: 0,
+          right: 0,
+          child: Center(
+            child: _buildModeSelector(),
+          ),
+        ),
+
+        // Layer 8: Bottom action bar (Gallery + Capture + Symmetry spacing)
         Positioned(
           bottom: MediaQuery.of(context).padding.bottom + 48,
           left: 0,
@@ -310,7 +369,9 @@ class _LuxuryScannerHUDState extends State<LuxuryScannerHUD>
               // Gallery button (left)
               if (widget.onGalleryPressed != null)
                 GestureDetector(
-                  onTap: widget.isScanning ? null : widget.onGalleryPressed,
+                  onTap: widget.isScanning
+                      ? null
+                      : () => widget.onGalleryPressed!(_selectedMode),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(16),
                     child: BackdropFilter(
@@ -335,7 +396,9 @@ class _LuxuryScannerHUDState extends State<LuxuryScannerHUD>
 
               // Capture button (center)
               GestureDetector(
-                onTap: widget.isScanning ? null : widget.onScanPressed,
+                onTap: widget.isScanning
+                    ? null
+                    : () => widget.onScanPressed(_selectedMode),
                 child: AnimatedBuilder(
                   animation: _pulseScale,
                   builder: (context, child) {
@@ -349,14 +412,16 @@ class _LuxuryScannerHUDState extends State<LuxuryScannerHUD>
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: widget.isScanning ? Colors.white38 : _gold,
+                            color: widget.isScanning
+                                ? Colors.white38
+                                : _currentThemeColor,
                             width: 4,
                           ),
                           boxShadow: widget.isScanning
                               ? []
                               : [
                                   BoxShadow(
-                                    color: _gold.withValues(alpha: 0.3),
+                                    color: _currentThemeColor.withValues(alpha: 0.3),
                                     blurRadius: 16,
                                     spreadRadius: 2,
                                   ),
@@ -372,14 +437,22 @@ class _LuxuryScannerHUDState extends State<LuxuryScannerHUD>
                               color: widget.isScanning ? Colors.white38 : Colors.white,
                             ),
                             child: widget.isScanning
-                                ? const Padding(
-                                    padding: EdgeInsets.all(16),
+                                ? Padding(
+                                    padding: const EdgeInsets.all(16),
                                     child: CircularProgressIndicator(
-                                      color: _gold,
+                                      color: _currentThemeColor,
                                       strokeWidth: 2.5,
                                     ),
                                   )
-                                : const Icon(Icons.camera_alt, color: Color(0xFF333333), size: 24),
+                                : Icon(
+                                    _selectedMode == 'material'
+                                        ? Icons.query_stats
+                                        : _selectedMode == 'style'
+                                            ? Icons.style
+                                            : Icons.camera_alt,
+                                    color: const Color(0xFF333333),
+                                    size: 24,
+                                  ),
                           ),
                         ),
                       ),
@@ -390,7 +463,7 @@ class _LuxuryScannerHUDState extends State<LuxuryScannerHUD>
 
               const SizedBox(width: 32),
 
-              // Symmetry placeholder (right)
+              // Symmetry placeholder
               const SizedBox(width: 48),
             ],
           ),
@@ -399,7 +472,69 @@ class _LuxuryScannerHUDState extends State<LuxuryScannerHUD>
     );
   }
 
-  /// Builds a single gold L-shaped corner accent.
+  /// Builds a horizontal Apple-style sliding mode picker
+  Widget _buildModeSelector() {
+    final modes = [
+      {'id': 'visual', 'label': 'VISUAL'},
+      {'id': 'material', 'label': 'MATERIAL'},
+      {'id': 'style', 'label': 'STYLE'},
+    ];
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.4),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: modes.map((m) {
+              final isSelected = _selectedMode == m['id'];
+              return GestureDetector(
+                onTap: widget.isScanning
+                    ? null
+                    : () {
+                        setState(() {
+                          _selectedMode = m['id']!;
+                        });
+                      },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? _currentThemeColor.withValues(alpha: 0.15)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isSelected ? _currentThemeColor : Colors.transparent,
+                      width: 1.0,
+                    ),
+                  ),
+                  child: Text(
+                    m['label']!,
+                    style: TextStyle(
+                      color: isSelected ? Colors.white : Colors.white60,
+                      fontSize: 10,
+                      fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Builds a single L-shaped corner accent with dynamically changing theme colors.
   Widget _buildCornerAccent(double x, double y, {
     bool topLeft = false,
     bool topRight = false,
@@ -427,7 +562,7 @@ class _LuxuryScannerHUDState extends State<LuxuryScannerHUD>
       height: length,
       child: CustomPaint(
         painter: _CornerPainter(
-          color: _gold,
+          color: _currentThemeColor,
           strokeWidth: stroke,
           topLeft: topLeft,
           topRight: topRight,
@@ -471,7 +606,7 @@ class _ScannerOverlayPainter extends CustomPainter {
       oldDelegate.frameRect != frameRect;
 }
 
-/// Draws an L-shaped gold corner bracket.
+/// Draws an L-shaped dynamic theme corner bracket.
 class _CornerPainter extends CustomPainter {
   final Color color;
   final double strokeWidth;
@@ -518,5 +653,5 @@ class _CornerPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_CornerPainter oldDelegate) => false;
+  bool shouldRepaint(_CornerPainter oldDelegate) => true;
 }

@@ -17,6 +17,9 @@ class AiScanProvider extends ChangeNotifier {
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
+  String? _currentMode;
+  String? get currentMode => _currentMode;
+
   /// Raw match data from the Python API: [{product_id, score}, ...]
   List<Map<String, dynamic>>? _rawMatches;
   List<Map<String, dynamic>>? get rawMatches => _rawMatches;
@@ -29,17 +32,28 @@ class AiScanProvider extends ChangeNotifier {
   List<Map<String, dynamic>>? _matchedProducts;
   List<Map<String, dynamic>>? get matchedProducts => _matchedProducts;
 
+  /// Mode-specific response payload (material analysis details)
+  Map<String, dynamic>? _materialAnalysis;
+  Map<String, dynamic>? get materialAnalysis => _materialAnalysis;
+
+  /// Mode-specific response payload (style recommendation details)
+  Map<String, dynamic>? _styleRecommendation;
+  Map<String, dynamic>? get styleRecommendation => _styleRecommendation;
+
   void reset() {
     _resultIds = null;
     _rawMatches = null;
     _matchedProducts = null;
+    _materialAnalysis = null;
+    _styleRecommendation = null;
+    _currentMode = null;
     _errorMessage = null;
     _isLoading = false;
     notifyListeners();
   }
 
   /// Captures a photo from the live camera and sends it to the Python API.
-  Future<void> captureAndScan(CameraController cameraController) async {
+  Future<void> captureAndScan(CameraController cameraController, String mode) async {
     if (!cameraController.value.isInitialized) return;
     if (_isLoading) return;
 
@@ -48,6 +62,9 @@ class AiScanProvider extends ChangeNotifier {
     _resultIds = null;
     _rawMatches = null;
     _matchedProducts = null;
+    _materialAnalysis = null;
+    _styleRecommendation = null;
+    _currentMode = mode;
     notifyListeners();
 
     try {
@@ -55,7 +72,7 @@ class AiScanProvider extends ChangeNotifier {
       final XFile image = await cameraController.takePicture();
       
       // 2. Send to Python API
-      await _sendToVisualSearch(image.path);
+      await _sendToVisualSearch(image.path, mode);
 
       // 3. Hydrate product data from Firestore
       if (_resultIds != null && _resultIds!.isNotEmpty) {
@@ -71,16 +88,19 @@ class AiScanProvider extends ChangeNotifier {
   }
 
   /// Also supports scanning from a file path (e.g. gallery pick)
-  Future<void> scanImage({required String imagePath}) async {
+  Future<void> scanImage({required String imagePath, required String mode}) async {
     _isLoading = true;
     _errorMessage = null;
     _resultIds = null;
     _rawMatches = null;
     _matchedProducts = null;
+    _materialAnalysis = null;
+    _styleRecommendation = null;
+    _currentMode = mode;
     notifyListeners();
 
     try {
-      await _sendToVisualSearch(imagePath);
+      await _sendToVisualSearch(imagePath, mode);
 
       if (_resultIds != null && _resultIds!.isNotEmpty) {
         await _hydrateProducts();
@@ -95,13 +115,14 @@ class AiScanProvider extends ChangeNotifier {
   }
 
   /// Sends image as multipart/form-data to the Python FastAPI endpoint.
-  Future<void> _sendToVisualSearch(String imagePath) async {
+  Future<void> _sendToVisualSearch(String imagePath, String mode) async {
     final file = File(imagePath);
     if (!await file.exists()) {
       throw Exception('Image file not found at $imagePath');
     }
 
-    final uri = Uri.parse('$_apiBaseUrl/api/v1/visual-search');
+    // Pass the selected scanning mode to the backend
+    final uri = Uri.parse('$_apiBaseUrl/api/v1/visual-search?mode=$mode');
     final request = http.MultipartRequest('POST', uri);
     request.files.add(await http.MultipartFile.fromPath('image', file.path));
 
@@ -118,6 +139,14 @@ class AiScanProvider extends ChangeNotifier {
 
       _rawMatches = matches;
       _resultIds = matches.map((m) => m['product_id'].toString()).toList();
+
+      // Read custom modes if provided
+      if (body.containsKey('material_analysis')) {
+        _materialAnalysis = Map<String, dynamic>.from(body['material_analysis'] as Map);
+      }
+      if (body.containsKey('style_recommendation')) {
+        _styleRecommendation = Map<String, dynamic>.from(body['style_recommendation'] as Map);
+      }
 
       debugPrint('Visual Search: ${_resultIds!.length} matches '
           '(inference: ${body['inference_time_ms']}ms, '

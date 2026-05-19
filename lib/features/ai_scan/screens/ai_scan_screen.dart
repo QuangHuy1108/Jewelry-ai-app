@@ -54,17 +54,17 @@ class _AiScanScreenState extends State<AiScanScreen> {
     super.dispose();
   }
 
-  Future<void> _onScanPressed() async {
+  Future<void> _onScanPressed(String mode) async {
     if (_cameraController == null || !_cameraController!.value.isInitialized) return;
-    await context.read<AiScanProvider>().captureAndScan(_cameraController!);
+    await context.read<AiScanProvider>().captureAndScan(_cameraController!, mode);
   }
 
-  Future<void> _onGalleryPressed() async {
+  Future<void> _onGalleryPressed(String mode) async {
     final picker = ImagePicker();
     final XFile? picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
     if (picked == null) return;
     if (!mounted) return;
-    await context.read<AiScanProvider>().scanImage(imagePath: picked.path);
+    await context.read<AiScanProvider>().scanImage(imagePath: picked.path, mode: mode);
   }
 
   @override
@@ -144,8 +144,12 @@ class _AiScanScreenState extends State<AiScanScreen> {
     );
   }
 
-  /// The full-screen results overlay with a frosted header and product grid.
+  /// The full-screen results overlay with a frosted header, mode-specific analysis cards, and product grid.
   Widget _buildResultsOverlay(BuildContext context, AiScanProvider provider) {
+    final mode = provider.currentMode;
+    final hasMaterial = provider.materialAnalysis != null;
+    final hasStyle = provider.styleRecommendation != null;
+
     return Container(
       color: const Color(0xFFF8F8F8),
       child: Column(
@@ -185,9 +189,13 @@ class _AiScanScreenState extends State<AiScanScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Visual Matches',
-                            style: TextStyle(
+                          Text(
+                            mode == 'material'
+                                ? 'Material Analysis'
+                                : mode == 'style'
+                                    ? 'Style Advisor'
+                                    : 'Visual Matches',
+                            style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                               color: Color(0xFF333333),
@@ -235,53 +243,285 @@ class _AiScanScreenState extends State<AiScanScreen> {
             ),
           ),
 
-          // ── Product Grid ──
+          // ── Scrollable Body with Mode Cards & Product Grid ──
           Expanded(
-            child: GridView.builder(
-              padding: ProductGridConstants.gridPaddingWithBottom(context),
-              gridDelegate: ProductGridConstants.gridDelegate,
-              itemCount: provider.matchedProducts!.length,
-              itemBuilder: (context, index) {
-                final product = provider.matchedProducts![index];
-                final score = provider.getScoreForProduct(product['id'] ?? '');
-                final pct = (score * 100).toStringAsFixed(0);
+            child: CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                // 1. Material Analysis Card (if applicable)
+                if (hasMaterial)
+                  SliverToBoxAdapter(
+                    child: _buildMaterialAnalysisCard(provider.materialAnalysis!),
+                  ),
 
-                return Stack(
-                  children: [
-                    ProductCard(
-                      product: product,
-                      onTap: () => AppNavigation.toProductDetail(context, product: product),
+                // 2. Style Recommendation Card (if applicable)
+                if (hasStyle)
+                  SliverToBoxAdapter(
+                    child: _buildStyleRecommendationCard(provider.styleRecommendation!),
+                  ),
+
+                // Section Title for product matches
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.only(left: 20, right: 20, top: 16, bottom: 8),
+                    child: Text(
+                      'Matching Boutique Pieces',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF222222),
+                        letterSpacing: 0.5,
+                      ),
                     ),
-                    // Confidence badge
-                    Positioned(
-                      top: 8,
-                      left: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.7),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
+                  ),
+                ),
+
+                // 3. Grid of Hydrated Products
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  sliver: SliverGrid(
+                    gridDelegate: ProductGridConstants.gridDelegate,
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final product = provider.matchedProducts![index];
+                        final score = provider.getScoreForProduct(product['id'] ?? '');
+                        final pct = (score * 100).toStringAsFixed(0);
+
+                        return Stack(
                           children: [
-                            const Icon(Icons.auto_awesome, color: Color(0xFFD4AF37), size: 12),
-                            const SizedBox(width: 4),
-                            Text(
-                              '$pct%',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
+                            ProductCard(
+                              product: product,
+                              onTap: () => AppNavigation.toProductDetail(context, product: product),
+                            ),
+                            // Confidence badge
+                            Positioned(
+                              top: 8,
+                              left: 8,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.7),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.auto_awesome, color: Color(0xFFD4AF37), size: 12),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '$pct%',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ],
-                        ),
-                      ),
+                        );
+                      },
+                      childCount: provider.matchedProducts!.length,
                     ),
-                  ],
-                );
-              },
+                  ),
+                ),
+
+                // Spacer at bottom
+                const SliverToBoxAdapter(
+                  child: SizedBox(height: 48),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Builds a stunning silver-themed card for material estimation results.
+  Widget _buildMaterialAnalysisCard(Map<String, dynamic> data) {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE0E0E0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0F2F5),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.query_stats, color: Color(0xFF7F8C8D), size: 20),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'AI Material & Accents Estimation',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF333333),
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildAnalysisRow('Estimated Base', data['base_material'] ?? 'Unknown'),
+          _buildAnalysisRow('Estimated Purity', data['purity'] ?? 'Unknown'),
+          _buildAnalysisRow('Outer Finishing', data['finishing'] ?? 'Unknown'),
+          _buildAnalysisRow('Accent Stones', data['accent_stones'] ?? 'None detected'),
+          _buildAnalysisRow('Surface Texture', data['texture'] ?? 'Smooth'),
+          _buildAnalysisRow('Match Purity', data['confidence_score'] ?? '0%'),
+          const Divider(height: 24, thickness: 1, color: Color(0xFFF2F2F2)),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(Icons.info_outline, color: Colors.grey, size: 14),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  data['disclaimer'] ?? '',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey,
+                    fontStyle: FontStyle.italic,
+                    height: 1.3,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Builds a beautiful rose-gold-themed style recommender card.
+  Widget _buildStyleRecommendationCard(Map<String, dynamic> data) {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFF2E6E8)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFB76E79).withValues(alpha: 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF0F2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.auto_awesome, color: Color(0xFFB76E79), size: 20),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'ZINK Stylist Recommendation',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF4A3437),
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          _buildStyleDetailSection('Aesthetic Match', data['aesthetic_profile']),
+          _buildStyleDetailSection('Vibe Profile', data['vibe_accent']),
+          _buildStyleDetailSection('Recommended Outfit Colors', data['outfit_tone']),
+          _buildStyleDetailSection('Stylist Layering & Pairing Tips', data['pairing_suggestions']),
+          _buildStyleDetailSection('Perfect Occasions', data['occasion_match']),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnalysisRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF333333),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStyleDetailSection(String title, String? content) {
+    if (content == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title.toUpperCase(),
+            style: const TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFFB76E79),
+              letterSpacing: 1.2,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            content,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF555555),
+              height: 1.4,
             ),
           ),
         ],
