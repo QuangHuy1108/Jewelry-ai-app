@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shimmer/shimmer.dart';
 import '../providers/product_provider.dart';
 import '../../cart/providers/cart_provider.dart';
+import '../../chat/providers/chat_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import 'package:jewelry_app/services/product_service.dart';
 
@@ -761,32 +762,29 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               color: Color(0xFF333333),
                               size: 20,
                             ),
-                            onPressed: () {
+                            onPressed: () async {
                               final sellerIdForChat =
                                   (seller['userId'] as String?) ??
                                   (seller['id'] as String? ?? '');
                               context.read<CartProvider>().setActiveConsultant(
                                 seller['id'] as String? ?? sellerIdForChat,
                               );
-                              final productContext = {
-                                'id': product['id'] ?? '',
-                                'name': product['name'] ?? '',
-                                'image':
-                                    (product['images'] as List<dynamic>?)
-                                        ?.firstWhere(
-                                          (u) => !u.toString().endsWith('.mp4'),
-                                          orElse: () => '',
-                                        ) ??
-                                    '',
-                                'price': product['basePrice'],
-                              };
+                              final productContext = product;
+                              
+                              final targetUserId = sellerIdForChat;
+                              final chatId = await context.read<ChatProvider>().openChat(
+                                sellerUserId: targetUserId,
+                                productId: product['id']?.toString(),
+                              );
+                              
+                              if (!context.mounted) return;
+
                               Navigator.pushNamed(
                                 context,
                                 '/chat-detail',
                                 arguments: {
-                                  'sellerId':
-                                      (seller['userId'] as String?) ??
-                                      (seller['id'] as String? ?? ''),
+                                  'chatId': chatId,
+                                  'sellerId': targetUserId,
                                   'sellerName': seller['name'] ?? 'Seller',
                                   'sellerAvatar': seller['avatar'] ?? '',
                                   'productContext': productContext,

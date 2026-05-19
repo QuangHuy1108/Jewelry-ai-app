@@ -1,9 +1,10 @@
-import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:provider/provider.dart';
 import '../providers/ai_scan_provider.dart';
+import '../widgets/luxury_scanner_hud.dart';
 import '../../product/widgets/product_card.dart';
 import '../../../router/app_navigation.dart';
 import '../../../core/theme/product_grid_constants.dart';
@@ -16,273 +17,275 @@ class AiScanScreen extends StatefulWidget {
 }
 
 class _AiScanScreenState extends State<AiScanScreen> {
+  CameraController? _cameraController;
+  bool _cameraReady = false;
+
   @override
   void initState() {
     super.initState();
+    _initCamera();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AiScanProvider>().reset();
     });
   }
 
+  Future<void> _initCamera() async {
+    try {
+      final cameras = await availableCameras();
+      if (cameras.isEmpty) return;
+
+      _cameraController = CameraController(
+        cameras.first,
+        ResolutionPreset.high,
+        enableAudio: false,
+      );
+      await _cameraController!.initialize();
+      if (mounted) {
+        setState(() => _cameraReady = true);
+      }
+    } catch (e) {
+      debugPrint('Camera init error: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    _cameraController?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _onScanPressed() async {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) return;
+    await context.read<AiScanProvider>().captureAndScan(_cameraController!);
+  }
+
+  Future<void> _onGalleryPressed() async {
+    final picker = ImagePicker();
+    final XFile? picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+    if (picked == null) return;
+    if (!mounted) return;
+    await context.read<AiScanProvider>().scanImage(imagePath: picked.path);
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Audit Note: Removed root context.watch to completely prevent Scaffold rebuilds.
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F8F8),
-      appBar: AppBar(
-        title: const Text('AI Jewelry Scanner', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
-        elevation: 1,
-        iconTheme: const IconThemeData(color: Colors.black),
-      ),
-      body: SingleChildScrollView(
-        child: Consumer<AiScanProvider>(
-          builder: (context, provider, child) {
-            return Column(
-              children: [
-                _buildImagePickerBox(provider),
-                if (provider.errorMessage != null)
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Text(
-                      provider.errorMessage!,
-                      style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                if (provider.isLoading)
-                  _buildLoadingState()
-                else if (provider.result != null)
-                  _buildResultCard(provider),
-                
-                if (provider.result != null)
-                  _buildSimilarProducts(provider.result!.type, provider.result!.material, provider.result!.gemstone),
-                
-                const SizedBox(height: 40),
-              ],
-            );
-          },
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Consumer<AiScanProvider>(
-            builder: (context, provider, child) {
-              return ElevatedButton(
-                onPressed: (provider.selectedImage == null || provider.isLoading) ? null : () => provider.scanImage(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF333333),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  disabledBackgroundColor: Colors.grey.shade300,
+      backgroundColor: Colors.black,
+      body: Consumer<AiScanProvider>(
+        builder: (context, provider, child) {
+          final hasResults = provider.matchedProducts != null &&
+              provider.matchedProducts!.isNotEmpty;
+
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              // ── Bottom Layer: Live Camera ──
+              if (_cameraReady && _cameraController != null)
+                CameraPreview(_cameraController!)
+              else
+                const Center(
+                  child: CircularProgressIndicator(color: Color(0xFFD4AF37)),
                 ),
-                child: const Text('Analyze Jewelry', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              );
-            },
+
+              // ── Middle Layer: Scanner HUD ──
+              if (!hasResults)
+                LuxuryScannerHUD(
+                  isScanning: provider.isLoading,
+                  onScanPressed: _onScanPressed,
+                  onGalleryPressed: _onGalleryPressed,
+                  onClose: () => Navigator.pop(context),
+                ),
+
+              // ── Error Toast ──
+              if (provider.errorMessage != null && !hasResults)
+                Positioned(
+                  top: MediaQuery.of(context).padding.top + 60,
+                  left: 24,
+                  right: 24,
+                  child: _buildErrorToast(provider.errorMessage!),
+                ),
+
+              // ── Top Layer: Results Overlay ──
+              if (hasResults)
+                _buildResultsOverlay(context, provider),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildErrorToast(String message) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.red.withValues(alpha: 0.7),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  message,
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildImagePickerBox(AiScanProvider provider) {
+  /// The full-screen results overlay with a frosted header and product grid.
+  Widget _buildResultsOverlay(BuildContext context, AiScanProvider provider) {
     return Container(
-      width: double.infinity,
-      height: 300,
-      margin: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade300, width: 2, style: BorderStyle.none),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 5)),
-        ],
-      ),
-      child: provider.selectedImage != null
-          ? Stack(
-              fit: StackFit.expand,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
-                  child: Image.file(provider.selectedImage!, fit: BoxFit.cover),
+      color: const Color(0xFFF8F8F8),
+      child: Column(
+        children: [
+          // ── Frosted glass header ──
+          ClipRRect(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+              child: Container(
+                padding: EdgeInsets.only(
+                  top: MediaQuery.of(context).padding.top + 8,
+                  bottom: 16,
+                  left: 16,
+                  right: 16,
                 ),
-                Positioned(
-                  top: 10,
-                  right: 10,
-                  child: GestureDetector(
-                    onTap: provider.reset,
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
-                      child: const Icon(Icons.close, color: Colors.white, size: 20),
-                    ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.85),
+                  border: Border(
+                    bottom: BorderSide(color: Colors.grey.withValues(alpha: 0.2)),
                   ),
-                )
-              ],
-            )
-          : Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.camera_alt_outlined, size: 60, color: Colors.grey),
-                const SizedBox(height: 16),
-                const Text('Upload or capture a photo\nof your jewelry', textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Colors.grey)),
-                const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                ),
+                child: Row(
                   children: [
-                    ElevatedButton.icon(
-                      onPressed: () => provider.pickImage(ImageSource.camera),
-                      icon: const Icon(Icons.camera_alt),
-                      label: const Text('Camera'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
-                        side: BorderSide(color: Colors.grey.shade300),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    GestureDetector(
+                      onTap: () => provider.reset(),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.arrow_back, size: 22, color: Color(0xFF333333)),
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    ElevatedButton.icon(
-                      onPressed: () => provider.pickImage(ImageSource.gallery),
-                      icon: const Icon(Icons.photo_library),
-                      label: const Text('Gallery'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
-                        side: BorderSide(color: Colors.grey.shade300),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Visual Matches',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF333333),
+                            ),
+                          ),
+                          Text(
+                            '${provider.matchedProducts!.length} similar pieces found',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Scan Again button
+                    GestureDetector(
+                      onTap: () => provider.reset(),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF333333),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.camera_alt, size: 14, color: Colors.white),
+                            SizedBox(width: 4),
+                            Text(
+                              'Scan Again',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
-                )
-              ],
-            ),
-    );
-  }
-
-  Widget _buildLoadingState() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 40),
-      child: Column(
-        children: [
-          const CircularProgressIndicator(color: Colors.black),
-          const SizedBox(height: 20),
-          Text('AI is analyzing your jewelry...', style: TextStyle(color: Colors.grey.shade700, fontSize: 16)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildResultCard(AiScanProvider provider) {
-    if (provider.result == null) return const SizedBox.shrink();
-    final result = provider.result!;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 5)),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.auto_awesome, color: Color(0xFFD4AF37)),
-              SizedBox(width: 8),
-              Text('AI Analysis Complete', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black)),
-            ],
-          ),
-          const Divider(height: 32),
-          _buildResultRow('Type', result.type),
-          _buildResultRow('Material', result.material),
-          _buildResultRow('Gemstone', result.gemstone),
-          _buildResultRow('Style', result.style),
-          const Divider(height: 32),
-          _buildResultRow('Est. Price', result.estimatedPriceRange, isHighlighted: true),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildResultRow(String label, String value, {bool isHighlighted = false}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: const TextStyle(fontSize: 15, color: Colors.grey)),
-          Text(
-            value.toUpperCase(),
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: isHighlighted ? FontWeight.bold : FontWeight.w600,
-              color: isHighlighted ? const Color(0xFFD4AF37) : Colors.black,
+                ),
+              ),
             ),
           ),
-        ],
-      ),
-    );
-  }
 
-  Widget _buildSimilarProducts(String type, String material, String gemstone) {
-    // Replaced fake logic with a physical stream to Firebase.
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Padding(
-          padding: EdgeInsets.only(left: 16, top: 24, bottom: 16),
-          child: Text('Similar Pieces from our Collection', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black)),
-        ),
-        SizedBox(
-          height: ProductGridConstants.horizontalListHeight,
-          child: FutureBuilder<QuerySnapshot>(
-            future: FirebaseFirestore.instance
-                .collection('products')
-                .where('category', isEqualTo: type)
-                // Filter logic matches tags loosely based on backend tags explicitly
-                .limit(5)
-                .get(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator(color: Colors.black));
-              }
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return const Center(child: Text('No exact matches, but browse our collections!', style: TextStyle(color: Colors.grey)));
-              }
-              
-              final products = snapshot.data!.docs;
-              
-              return ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: ProductGridConstants.horizontalListPadding,
-                itemCount: products.length,
-                separatorBuilder: (_, __) => const SizedBox(width: ProductGridConstants.horizontalCardSpacing),
-                itemBuilder: (context, index) {
-                  final data = products[index].data() as Map<String, dynamic>;
-                  data['id'] = products[index].id;
-                  
-                  return SizedBox(
-                    width: ProductGridConstants.horizontalCardWidth,
-                    child: ProductCard(
-                      product: data,
-                      onTap: () {
-                        AppNavigation.toProductDetail(context, product: data);
-                      },
+          // ── Product Grid ──
+          Expanded(
+            child: GridView.builder(
+              padding: ProductGridConstants.gridPaddingWithBottom(context),
+              gridDelegate: ProductGridConstants.gridDelegate,
+              itemCount: provider.matchedProducts!.length,
+              itemBuilder: (context, index) {
+                final product = provider.matchedProducts![index];
+                final score = provider.getScoreForProduct(product['id'] ?? '');
+                final pct = (score * 100).toStringAsFixed(0);
+
+                return Stack(
+                  children: [
+                    ProductCard(
+                      product: product,
+                      onTap: () => AppNavigation.toProductDetail(context, product: product),
                     ),
-                  );
-                },
-              );
-            },
+                    // Confidence badge
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.7),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.auto_awesome, color: Color(0xFFD4AF37), size: 12),
+                            const SizedBox(width: 4),
+                            Text(
+                              '$pct%',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
-        )
-      ],
+        ],
+      ),
     );
   }
 }

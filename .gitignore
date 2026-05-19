@@ -55,3 +55,7 @@ app.*.map.json
 # Web dashboard build artifacts
 **/node_modules/
 **/dist/
+
+# Python AI service
+**/.env
+**/__pycache__/

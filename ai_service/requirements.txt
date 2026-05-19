@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+sentence-transformers
+qdrant-client
+python-multipart
+pillow
+python-dotenv
+firebase-admin
+requests

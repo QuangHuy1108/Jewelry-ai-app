@@ -59,8 +59,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
     if (preResolvedChatId != null && preResolvedChatId.isNotEmpty) {
       _chatId = preResolvedChatId;
       Future.microtask(() {
-        if (mounted)
+        if (mounted) {
           context.read<ChatProvider>().openChatById(preResolvedChatId);
+          
+          final productId = _productContext?['id'] as String?;
+          if (productId != null && _productContext != null) {
+            _autoSendProductIfNeeded(preResolvedChatId, productId);
+          }
+        }
       });
     } else if (_sellerId != null) {
       // Calculate symmetric ID immediately to avoid split-brain
@@ -78,10 +84,14 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
         if (!mounted) return;
         try {
           final chatId = await context.read<ChatProvider>().openChat(
-            sellerId: _sellerId!,
+            sellerUserId: _sellerId!,
             productId: productId,
           );
           if (mounted) setState(() => _chatId = chatId);
+          
+          if (productId != null && _productContext != null) {
+            _autoSendProductIfNeeded(chatId, productId);
+          }
         } catch (e) {
           debugPrint('ChatDetailScreen Error: Failed to open chat session: $e');
           // Step 1: COMPLETELY remove the Navigator.pop(context) here.
@@ -137,6 +147,39 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       }
     } catch (e) {
       debugPrint('Error resolving sender name: $e');
+    }
+  }
+
+  Future<void> _autoSendProductIfNeeded(String chatId, String productId) async {
+    try {
+      final lastMsgs = await FirebaseFirestore.instance
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .orderBy('createdAt', descending: true)
+          .limit(1)
+          .get();
+          
+      bool shouldSend = true;
+      if (lastMsgs.docs.isNotEmpty) {
+        final lastMsg = MessageModel.fromDoc(lastMsgs.docs.first);
+        // Check if the last message was the same shared_product card sent recently
+        if (lastMsg.type == 'shared_product' && 
+            lastMsg.metadata?['id'] == productId) {
+          shouldSend = false;
+        }
+      }
+      
+      if (shouldSend && mounted) {
+        // We do not await this, just fire and forget
+        context.read<ChatProvider>().sendMessage(
+          '', // Empty text for a purely product card message
+          type: 'shared_product',
+          metadata: _productContext,
+        );
+      }
+    } catch (e) {
+      debugPrint('Error auto sending product: $e');
     }
   }
 
@@ -216,7 +259,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            if (_productContext != null) _buildProductPreview(),
             Expanded(
               child: _chatId == null
                   ? const Center(
@@ -308,8 +350,9 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
                                 itemCount: items.length,
                                 itemBuilder: (context, index) {
                                   final item = items[index];
-                                  if (item is DateTime)
+                                  if (item is DateTime) {
                                     return _DateHeader(date: item);
+                                  }
                                   final msg = item as MessageModel;
                                   final isMe = msg.senderId == currentUserId;
                                   return _FadeInMessage(
@@ -470,69 +513,6 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             style: TextStyle(fontSize: 13, color: Color(0xFF999999)),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildProductPreview() {
-    final p = _productContext!;
-    return GestureDetector(
-      onTap: () => Navigator.pop(context),
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF9F9F9),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFEEEEEE)),
-        ),
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: Image.network(
-                p['image'] ?? '',
-                width: 56,
-                height: 56,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
-                  width: 56,
-                  height: 56,
-                  color: const Color(0xFFEEEEEE),
-                  child: const Icon(Icons.image, color: Colors.grey),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    p['name'] ?? '',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF333333),
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    p['price'] != null ? '\$${p['price']}' : '',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFFD4AF37),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.chevron_right, color: Color(0xFFCCCCCC), size: 20),
-          ],
-        ),
       ),
     );
   }
@@ -832,13 +812,22 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
 
   Widget _buildSharedProductCard(MessageModel msg) {
     final meta = msg.metadata ?? {};
+    final imageList = meta['images'] as List<dynamic>?;
+    final String imageUrl = meta['image'] ?? 
+        (imageList?.isNotEmpty == true 
+            ? imageList!.firstWhere((u) => !u.toString().endsWith('.mp4'), orElse: () => '').toString() 
+            : '');
+    final price = meta['price'] ?? meta['basePrice'];
+    final rating = meta['rating'] ?? '0.0';
+    final reviews = meta['reviewCount'] ?? meta['reviews'] ?? 0;
+
     return GestureDetector(
       onTap: () {
         if (meta['id'] != null) {
           Navigator.pushNamed(
             context,
             AppRouter.product,
-            arguments: meta['id'],
+            arguments: meta,
           );
         }
       },
@@ -863,7 +852,7 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: Image.network(
-                meta['image'] ?? '',
+                imageUrl,
                 height: 120,
                 width: double.infinity,
                 fit: BoxFit.cover,
@@ -882,8 +871,29 @@ class _ChatDetailScreenState extends State<ChatDetailScreen> {
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 4),
+            Row(
+              children: [
+                const Icon(Icons.star, color: Color(0xFFD4AF37), size: 14),
+                const SizedBox(width: 4),
+                Text(
+                  '$rating',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF777777),
+                  ),
+                ),
+                Text(
+                  ' ($reviews)',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF999999),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
             Text(
-              meta['price'] != null ? '\$${meta['price']}' : '',
+              price != null ? '\$$price' : '',
               style: const TextStyle(
                 fontSize: 14,
                 color: Color(0xFFD4AF37),

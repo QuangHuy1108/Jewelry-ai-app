@@ -52,6 +52,9 @@ class ChatService {
     
     final doc = await docRef.get();
     if (doc.exists) {
+      await docRef.set({
+        'deletedBy': [],
+      }, SetOptions(merge: true));
       return chatId;
     }
 

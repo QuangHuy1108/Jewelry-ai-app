@@ -15,10 +15,10 @@ class AiResultModel {
 
   factory AiResultModel.fromJson(Map<String, dynamic> json) {
     return AiResultModel(
-      type: json['type']?.toString() ?? 'Unknown',
-      material: json['material']?.toString() ?? 'Unknown',
-      gemstone: json['gemstone']?.toString() ?? 'Unknown',
-      style: json['style']?.toString() ?? 'Unknown',
+      type: (json['type']?.toString() ?? 'unknown').trim().toLowerCase(),
+      material: (json['material']?.toString() ?? 'unknown').trim().toLowerCase(),
+      gemstone: (json['gemstone']?.toString() ?? 'unknown').trim().toLowerCase(),
+      style: (json['style']?.toString() ?? 'unknown').trim().toLowerCase(),
       estimatedPriceRange: json['estimated_price_range']?.toString() ?? 'N/A',
     );
   }

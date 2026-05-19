@@ -162,7 +162,7 @@ class ChatProvider extends ChangeNotifier {
   /// Optionally linked to a product.
   /// Returns the chatId.
   Future<String> openChat({
-    required String sellerId,
+    required String sellerUserId,
     String? productId,
   }) async {
     final uid = currentUserId;
@@ -170,7 +170,7 @@ class ChatProvider extends ChangeNotifier {
 
     final chatId = await _service.createOrGetChat(
       userId: uid,
-      sellerId: sellerId,
+      sellerId: sellerUserId,
       productId: productId,
     );
 
@@ -178,8 +178,8 @@ class ChatProvider extends ChangeNotifier {
     _subscribeToMessages(chatId);
 
     // Pre-fetch profile if not cached
-    if (!_profileCache.containsKey(sellerId)) {
-      _fetchProfile(sellerId);
+    if (!_profileCache.containsKey(sellerUserId)) {
+      _fetchProfile(sellerUserId);
     }
 
     notifyListeners();

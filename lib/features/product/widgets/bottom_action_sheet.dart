@@ -3,10 +3,11 @@ import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../wishlist/providers/wishlist_provider.dart';
 import '../../../shared/widgets/cart_badge_icon.dart';
-import '../../chat/screens/seller_chat_screen.dart';
+import '../../chat/providers/chat_provider.dart';
 import '../../../router/app_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../share/widgets/glass_share_modal.dart';
 
 class BottomActionSheet extends StatelessWidget {
   final Map<String, dynamic> product;
@@ -36,7 +37,7 @@ class BottomActionSheet extends StatelessWidget {
             icon: Icons.ios_share,
             label: 'Share',
             onTap: () {
-              Share.share('Check out this luxurious ${product['name']}!');
+              GlassShareModal.show(context, product: product);
             },
           ),
           FutureBuilder<DocumentSnapshot>(
@@ -54,13 +55,23 @@ class BottomActionSheet extends StatelessWidget {
               return _buildActionItem(
                 icon: Icons.chat_bubble_outline,
                 label: 'Chat',
-                onTap: () {
+                onTap: () async {
+                  final targetUserId = sellerUserId ?? product['sellerId'];
+                  
+                  final chatId = await context.read<ChatProvider>().openChat(
+                    sellerUserId: targetUserId,
+                    productId: product['id']?.toString(),
+                  );
+                  
+                  if (!context.mounted) return;
+
                   // Task 2: Pass sellerUserId instead of product['sellerId']
                   Navigator.pushNamed(
                     context, 
                     AppRouter.chatDetail,
                     arguments: {
-                      'sellerId': sellerUserId ?? product['sellerId'],
+                      'chatId': chatId,
+                      'sellerId': targetUserId,
                       'sellerName': sellerData?['name'] ?? 'Support',
                       'sellerAvatar': sellerData?['avatar'] ?? '',
                       'productContext': product,

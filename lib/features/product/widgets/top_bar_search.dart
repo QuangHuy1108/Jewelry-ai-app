@@ -6,6 +6,7 @@ import '../../wishlist/providers/wishlist_provider.dart';
 import '../../../shared/widgets/cart_badge_icon.dart';
 import '../../../core/theme/app_colors.dart';
 import 'package:jewelry_app/services/product_service.dart';
+import '../../share/widgets/glass_share_modal.dart';
 
 class TopBarWithSearch extends StatefulWidget {
   final Map<String, dynamic> product;
@@ -232,7 +233,7 @@ class _TopBarWithSearchState extends State<TopBarWithSearch> {
             const SizedBox(width: 6),
             _buildCircularButton(
               icon: Icons.ios_share,
-              onTap: () => Share.share('Check out this luxurious ${widget.product['name']}!'),
+              onTap: () => GlassShareModal.show(context, product: widget.product),
             ),
             const SizedBox(width: 6),
             _buildCircularButtonWidget(
